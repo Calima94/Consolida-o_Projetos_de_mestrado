@@ -26,6 +26,7 @@ behaviour is kept and pinned by a golden test against the original code.
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import asdict, dataclass, field
 from typing import Literal
 
@@ -101,6 +102,45 @@ class LegacyFeatureConfig:
         if self.samples_per_window < 1:
             raise ValueError("window_ms is shorter than one sample period")
 
+    @classmethod
+    def for_sensor(
+        cls,
+        fs_hz: float,
+        n_channels: int,
+        highpass_hz: float = 20.0,
+        mains_hz: float = 60.0,
+        **kwargs,
+    ) -> LegacyFeatureConfig:
+        """Same pipeline with IIR stages redesigned for another sensor.
+
+        The legacy SOS coefficients only make sense at 200 Hz (Myo). For any
+        other sampling rate this builds a 4th-order Butterworth high-pass at
+        ``highpass_hz`` and a 2nd-order Butterworth band-stop at
+        ``mains_hz +- 5 Hz`` (skipped when the mains frequency is above
+        Nyquist). This is a **new design**, not the thesis one, so models must
+        be retrained.
+
+        Examples
+        --------
+        >>> cfg = LegacyFeatureConfig.for_sensor(fs_hz=1000.0, n_channels=4)
+        >>> cfg.samples_per_window
+        250
+        """
+        hp = signal.butter(4, highpass_hz, btype="highpass", fs=fs_hz, output="sos")
+        if mains_hz + 5.0 < fs_hz / 2.0:
+            bs = signal.butter(
+                2, [mains_hz - 5.0, mains_hz + 5.0], btype="bandstop", fs=fs_hz, output="sos"
+            )
+        else:
+            bs = np.array([[1.0, 0.0, 0.0, 1.0, 0.0, 0.0]])  # identity section
+        return cls(
+            fs_hz=fs_hz,
+            n_channels=n_channels,
+            sos_highpass=tuple(map(tuple, hp.tolist())),
+            sos_bandstop=tuple(map(tuple, bs.tolist())),
+            **kwargs,
+        )
+
     @property
     def samples_per_window(self) -> int:
         """Number of samples per window, computed as in the legacy code."""
@@ -159,7 +199,11 @@ def legacy_wavelet_filter(x: np.ndarray, config: LegacyFeatureConfig) -> np.ndar
     Operates along axis 1 of a ``[n_windows, samples_per_window, n_channels]``
     array. See the module docstring for the reproduced loop quirk.
     """
-    coeffs = pywt.wavedec(x, config.wavelet, level=config.wavelet_levels, axis=1)
+    with warnings.catch_warnings():
+        # 4 levels of db7 on 50 samples exceeds pywt's maximum useful level and
+        # warns about boundary effects; that is the thesis configuration.
+        warnings.filterwarnings("ignore", message="Level value of .* is too high")
+        coeffs = pywt.wavedec(x, config.wavelet, level=config.wavelet_levels, axis=1)
     # Verbatim loop bounds from the original wav_filter(); visits only i = 1.
     for i in range(1, -1, -(config.wavelet_levels + 1)):
         if -i not in config.wavelet_layers:

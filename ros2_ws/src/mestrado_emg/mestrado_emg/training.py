@@ -244,7 +244,12 @@ def train_all(
             "sklearn_version": sklearn.__version__,
             "created": date,
         }
-        joblib.dump(bundle, out_dir / f"{name}_{stem}_{config.feature}_{split}_{date}.joblib")
+        dated = out_dir / f"{name}_{stem}_{config.feature}_{split}_{date}.joblib"
+        joblib.dump(bundle, dated)
+        # Stable name for launch files: <name>_<stem>_<feature>_<split>_latest.joblib
+        latest = out_dir / f"{name}_{stem}_{config.feature}_{split}_latest.joblib"
+        latest.unlink(missing_ok=True)
+        latest.symlink_to(dated.name)
 
     report_path = out_dir / f"report_{stem}_{config.feature}_{split}_{date}.json"
     report_path.write_text(json.dumps(report, indent=2))

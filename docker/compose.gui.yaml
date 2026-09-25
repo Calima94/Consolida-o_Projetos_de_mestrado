@@ -1,0 +1,20 @@
+# Gazebo GUI through X11 (Linux) or WSLg (Windows 11: DISPLAY=:0 already set).
+# On Linux run `xhost +local:` once per session before `up`, and pass GUI=true:
+#   GUI=true docker compose -f docker/compose.yaml -f docker/compose.gui.yaml up sim
+services:
+  sim:
+    environment:
+      - DISPLAY=${DISPLAY:-:0}
+      - QT_X11_NO_MITSHM=1
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+    devices:
+      - /dev/dri:/dev/dri
+  shell:
+    environment:
+      - DISPLAY=${DISPLAY:-:0}
+      - QT_X11_NO_MITSHM=1
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+    devices:
+      - /dev/dri:/dev/dri
