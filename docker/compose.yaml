@@ -41,7 +41,7 @@ services:
     <<: *ros
     command: >
       ros2 launch mestrado_bringup mestrado.launch.py
-      source:=${SOURCE:-replay} gui:=${GUI:-false}
+      source:=${SOURCE:-replay} gui:=${GUI:-false} tty:=${MYO_TTY:-}
       csv_path:=/data/${CSV:-6_10_20220.csv}
       model_path:=/models/${MODEL:-knn_6-10-20220_mav_temporal_latest.joblib}
 
