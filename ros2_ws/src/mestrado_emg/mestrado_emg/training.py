@@ -89,7 +89,8 @@ def load_legacy_csv(path: str | Path) -> tuple[np.ndarray, np.ndarray]:
 
     Column names are stripped and lower-cased; channel columns are those
     starting with ``chanel``/``channel`` (both spellings exist in the data) and
-    the label is the last column.
+    the label is the last column. Rows labelled 0 (continuous-mode samples
+    outside every category, see ``mestrado_capture``) are dropped.
 
     Returns
     -------
@@ -102,6 +103,9 @@ def load_legacy_csv(path: str | Path) -> tuple[np.ndarray, np.ndarray]:
     channel_cols = [c for c in df.columns if re.match(r"^(chanel|channel)", c)]
     if not channel_cols:
         raise ValueError(f"no channel columns found in {path}")
+    # Label 0 = "outside every category", written only by the capture tool's
+    # continuous mode (mestrado_capture); it is not a class.
+    df = df[df[df.columns[-1]] != 0]
     return df[channel_cols].to_numpy(dtype=float), df[df.columns[-1]].to_numpy()
 
 

@@ -57,26 +57,37 @@ def msg_to_samples(msg: Float32MultiArray) -> np.ndarray:
 def spin_node(node_factory, args: list[str] | None = None) -> None:
     """Run a node until Ctrl+C / SIGINT / SIGTERM and clean up exactly once.
 
-    On ``docker compose stop`` or Ctrl+C the node can receive SIGINT twice
-    (once from the terminal/tini process group, once forwarded by
-    ``ros2 launch``). The second one must not abort cleanup -- for the Myo
-    driver that is where the dongle is disconnected. If the node defines
-    ``shutdown()``, it is called before ``destroy_node()``.
+    SIGINT and SIGTERM only *request* the stop; the node leaves between two
+    callbacks, never in the middle of one (a KeyboardInterrupt raised at an
+    arbitrary point can cut a Myo disconnection or a file write in half).
+    On ``docker compose stop`` or Ctrl+C the signal can arrive twice (terminal
+    or tini process group, then ``ros2 launch``); repeats are ignored.
+    A callback may raise ``KeyboardInterrupt`` (or a subclass) to end the node
+    itself. If the node defines ``shutdown()``, it is called before
+    ``destroy_node()``.
     """
     import signal
+    import threading
 
     import rclpy
-    from rclpy.executors import ExternalShutdownException
+    from rclpy.executors import ExternalShutdownException, SingleThreadedExecutor
+    from rclpy.signals import SignalHandlerOptions
 
-    rclpy.init(args=args)
+    stop = threading.Event()
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        signal.signal(sig, lambda *_: stop.set())
+
+    rclpy.init(args=args, signal_handler_options=SignalHandlerOptions.NO)
     node = None
     try:
         node = node_factory()
-        rclpy.spin(node)
+        executor = SingleThreadedExecutor()
+        executor.add_node(node)
+        while rclpy.ok() and not stop.is_set():
+            executor.spin_once(timeout_sec=0.1)
     except (KeyboardInterrupt, ExternalShutdownException):
         pass
     finally:
-        signal.signal(signal.SIGINT, signal.SIG_IGN)
         if node is not None:
             if hasattr(node, "shutdown"):
                 node.shutdown()

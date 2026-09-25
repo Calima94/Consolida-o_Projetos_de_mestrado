@@ -1,6 +1,6 @@
 # Consolidação dos projetos de mestrado
 
-Os quatro repositórios do mestrado (*Simulador open-source de prótese de membro
+Os repositórios do mestrado (*Simulador open-source de prótese de membro
 superior controlado por sEMG*, UFABC, 2023) reunidos num só e portados para
 **ROS 2 Lyrical Luth + Gazebo Jetty**, rodando em **Docker**.
 
@@ -10,9 +10,14 @@ primeiro reproduzir fielmente o que o mestrado fazia, com o ambiente atual, e s�
 então evoluir.
 
 ```
-sEMG (Myo ao vivo, ou CSV gravado) ──► /emg/raw ──► emg_classifier ──► /arm/*/cmd_pos ──► Gazebo Jetty
-                                        /emg/imu ─┘   (features do mestrado + kNN)            (braço do mestrado)
+                 captura (webcam + MediaPipe) ──► /capture/elbow_angle_deg ──► emg_recorder ──► CSV rotulado
+                                                        │ (modo espelho)
+sEMG (Myo, ou CSV gravado) ──► /emg/raw ──► emg_classifier ──► /arm/*/cmd_pos ──► arm_controller ──► Gazebo Jetty
+                               /emg/imu ─┘  (features do mestrado + kNN)            (P, kp do mestrado)   (braço do mestrado)
 ```
+
+**Para rodar na sua máquina, siga [`docs/COMO_RODAR.md`](docs/COMO_RODAR.md)**
+(Windows 11 com WSL2, ou Linux).
 
 ## Estado
 
@@ -20,12 +25,14 @@ sEMG (Myo ao vivo, ou CSV gravado) ──► /emg/raw ──► emg_classifier �
 |---|---|
 | Pipeline de features (filtros, wavelet, MAV/RMS) | ✅ Idêntico ao código original (diferença < 1e-9, testado contra cópia literal) |
 | Treino dos 5 classificadores | ✅ Reproduz exatamente os scores históricos (0,9444 nos cinco) |
-| Braço no Gazebo Jetty | ✅ Massas, geometria e juntas do mestrado; controle P com os ganhos originais |
-| Fluxo completo sem hardware (CSV → classificador → braço) | ✅ Coberto pelo teste de integração (`scripts/integration_test.sh`) |
+| Braço no Gazebo Jetty | ✅ Massas, geometria e juntas do mestrado; controle P com os kp originais (resposta de 1ª ordem medida: 63 % em 1 s com kp = 1) |
+| Fluxo completo sem hardware (CSV → classificador → braço) | ✅ Teste de ponta a ponta no CI |
+| Ferramenta de captura (`Capture_EMG_Data`) | ✅ Portada; ensaio completo sem hardware (vídeo do mestrado + sEMG reproduzido) no CI |
+| Ângulo do cotovelo com MediaPipe 1.x | ✅ No vídeo do mestrado, diferença ≤ 3° em relação ao que a ferramenta original mediu |
+| Modo espelho (o braço do Gazebo copia o seu, via câmera) | ✅ Novo; testado com o vídeo do mestrado |
 | Encerrar com Ctrl+C / `docker compose stop` / `scripts/stop.sh` | ✅ Sem processos sobrando (medido) |
 | Driver do Myo | ⚠️ Portado e com testes do protocolo, **mas nunca rodou com um Myo de verdade** |
-| Janela do Gazebo | ⚠️ Testada só em display virtual (Xvfb); falta testar numa máquina com monitor |
-| Ferramenta de coleta com webcam (`Capture_EMG_Data`) | ❌ Ainda não portada |
+| Janelas (Gazebo e câmera) | ⚠️ Testadas só em display virtual (Xvfb); falta testar com monitor, no Windows/WSL2 e com webcam |
 
 O que mudou em relação ao mestrado, e por quê, está em
 [`docs/DECISOES.md`](docs/DECISOES.md). Os problemas encontrados no código
@@ -34,73 +41,55 @@ original estão em [`docs/INVENTARIO_MESTRADO.md`](docs/INVENTARIO_MESTRADO.md).
 ## Requisitos
 
 - Docker com Compose v2.
-- Para ver a janela do Gazebo: Linux com X11, ou Windows 11 com WSL2 (WSLg).
-- **Nenhum hardware.** Sem Myo, o sistema reproduz as gravações do mestrado.
+- Para ver as janelas: Linux com X11, ou Windows 11 com WSL2 (WSLg).
+- **Nenhum hardware.** Sem Myo, o sistema reproduz as gravações do mestrado;
+  sem webcam, usa um vídeo.
 
 ## Início rápido
 
-Todos os comandos a partir da raiz do repositório.
+A partir da raiz do repositório. O passo a passo completo, com instalação e
+solução de problemas, está em [`docs/COMO_RODAR.md`](docs/COMO_RODAR.md).
 
 ```bash
-# 1. Baixar os dados do mestrado (commit fixo, SHA-256 conferido) para ./data
-./scripts/fetch_legacy_data.sh
+./scripts/fetch_legacy_data.sh                            # dados do mestrado -> ./data
+docker compose -f docker/compose.yaml build               # imagem ROS 2 + Gazebo
+docker compose -f docker/compose.yaml run --rm train      # 5 classificadores -> ./models
 
-# 2. Construir a imagem (ROS 2 Lyrical + Gazebo Jetty + este workspace)
-docker compose -f docker/compose.yaml build
-
-# 3. Treinar os 5 classificadores; os modelos vão para ./models
-docker compose -f docker/compose.yaml run --rm train
-
-# 4a. Rodar sem janela: CSV gravado -> kNN -> braço no Gazebo
+# sistema do mestrado: sEMG gravado -> kNN -> braço (sem janela)
 docker compose -f docker/compose.yaml up sim
 
-# 4b. Ou com a janela do Gazebo (no Linux, rode `xhost +local:` antes)
+# com janela: acrescente -f docker/compose.gui.yaml (Linux) ou -f docker/compose.wsl.yaml (Windows)
 GUI=true docker compose -f docker/compose.yaml -f docker/compose.gui.yaml up sim
+
+# modo espelho com o vídeo do mestrado
+CAMERA=/data/test_2_05.avi FLIP=false docker compose -f docker/compose.yaml -f docker/compose.gui.yaml up espelho
 ```
-
-O nó `angle_monitor` imprime no terminal os ângulos alvo e atual do ombro e do
-cotovelo, como fazia o painel PyQt do mestrado.
-
-Para outro modelo ou outra gravação: `MODEL=lda_6-10-20220_mav_temporal_latest.joblib`
-ou `CSV=train_with_openCV_list_16_05.csv` antes do `docker compose up`.
 
 ### Encerrar
 
-Qualquer uma destas formas encerra tudo, inclusive o Gazebo:
-
-- **Ctrl+C** no terminal do `docker compose up` (ou do `ros2 launch`);
-- `docker compose -f docker/compose.yaml stop`;
-- `./scripts/stop.sh`, o equivalente ao botão "Stop" do launcher do mestrado.
-  No host ele para os serviços do compose; dentro do container manda SIGINT e,
-  se algo sobrar, força o encerramento.
-
-Tempos medidos: 0,4 s sem janela, 3,4 s com janela. No mestrado era preciso
+Ctrl+C, `docker compose -f docker/compose.yaml stop` ou `./scripts/stop.sh`
+(o equivalente ao botão "Stop" do mestrado). Tempo medido: 0,4 s, com ou sem
+janelas, sem processos sobrando. No mestrado era preciso
 `killall gzserver gzclient`; a causa e a correção estão na decisão D9.
 
-### Trabalhar dentro do container
+## Serviços do compose
 
-```bash
-docker compose -f docker/compose.yaml run --rm shell
-# dentro:
-ros2 launch mestrado_bringup sim.launch.py gui:=false        # só o braço
-ros2 topic pub --once /arm/elbow/cmd_pos std_msgs/msg/Float64 "{data: 1.57}"
-ros2 run mestrado_emg train_legacy /data/6_10_20220.csv --out /models --feature rms --split legacy
-```
+| Serviço | O que faz | Variáveis principais |
+|---|---|---|
+| `train` | Treina os 5 classificadores a partir do CSV | — |
+| `sim` | Gazebo + fonte de sEMG + classificador + controlador | `SOURCE` (`replay`/`myo`), `CSV`, `MODEL`, `GUI` |
+| `espelho` | Gazebo + câmera: o braço copia o cotovelo visto | `CAMERA`, `FLIP`, `ARM`, `GUI` |
+| `captura` | Ferramenta de captura: câmera + sEMG rotulado por categoria | `EMG`, `CAMERA`, `N_CATEGORIES`, `TOLERANCE`, `SAMPLES`, `CONTINUOUS` |
+| `shell` | Terminal com o workspace carregado | — |
 
-## Usar o Myo
+Arquivos adicionais: `compose.gui.yaml` (janelas no Linux),
+`compose.wsl.yaml` (janelas no Windows/WSLg), `compose.camera.yaml` (webcam),
+`compose.myo.yaml` (dongle do Myo).
 
-```bash
-MYO_TTY=/dev/ttyACM0 SOURCE=myo docker compose -f docker/compose.yaml -f docker/compose.myo.yaml up sim
-```
+## Tópicos
 
-No Windows, primeiro conecte o dongle ao WSL2 com
-[usbipd](https://learn.microsoft.com/windows/wsl/connect-usb). O ombro segue o
-pitch do IMU, medido em relação à primeira leitura, como no mestrado.
-
-## Trocar de sensor
-
-Qualquer fonte de sEMG publica nos mesmos tópicos. O classificador e o
-simulador não mudam.
+Qualquer fonte de sEMG publica nos mesmos tópicos. Trocar de sensor é escrever
+um nó driver; classificador e simulador não mudam.
 
 | Tópico | Tipo | Conteúdo |
 |---|---|---|
@@ -108,18 +97,21 @@ simulador não mudam.
 | `/emg/imu` | `sensor_msgs/Imu` | Orientação do sensor (opcional; move o ombro) |
 | `/emg/label` | `std_msgs/Int32` | Categoria gravada (só no `emg_replay`) |
 | `/emg/predicted_class` | `std_msgs/Int32` | Saída do classificador |
-| `/arm/shoulder/cmd_pos`, `/arm/elbow/cmd_pos` | `std_msgs/Float64` | Alvo em radianos |
+| `/arm/<junta>/cmd_pos` | `std_msgs/Float64` | Alvo em radianos (`shoulder`, `elbow`, `gripper_left`, `gripper_right`) |
+| `/arm/<junta>/cmd_vel` | `std_msgs/Float64` | Velocidade que o `arm_controller` envia ao Gazebo |
 | `/joint_states` | `sensor_msgs/JointState` | Estado das juntas vindo do Gazebo |
+| `/capture/elbow_angle_deg` | `std_msgs/Float64` | Ângulo do cotovelo medido pela câmera (≈ 170° esticado) |
+| `/capture/recording`, `/capture/status` | `Bool`, `String` | Estado da captura (cor do traçado e progresso na janela) |
 
-Para um sensor novo:
+### Trocar de sensor
 
 1. Escreva um nó que publique `/emg/raw` (use `samples_to_msg` de
    `mestrado_emg/nodes/common.py`; `myo_driver.py` serve de modelo).
 2. Os filtros do mestrado só valem a 200 Hz. Para outra taxa, use
    `LegacyFeatureConfig.for_sensor(fs_hz=..., n_channels=...)`, que recalcula o
    passa-altas e o rejeita-faixa de 60 Hz.
-3. Grave dados e **retreine**: ganho, posição e taxa diferentes não deixam os
-   modelos do Myo se transferirem.
+3. Grave dados com a ferramenta de captura e **retreine**: ganho, posição e
+   taxa diferentes não deixam os modelos do Myo se transferirem.
 
 ## Testes e CI
 
@@ -132,41 +124,44 @@ pytest
 
 Os testes cobrem:
 
-- equivalência com o código original;
+- equivalência com cópias literais do código original (features e regras de
+  categoria da captura);
 - reprodução da matriz de treino e dos scores históricos;
-- protocolo do Myo sem hardware;
-- consistência entre o SDF, a ponte ROS↔Gazebo e os tópicos;
+- o ângulo do MediaPipe contra o que a ferramenta original imprimiu no vídeo;
+- a lei de controle e a resposta de 1ª ordem;
+- o protocolo do Myo sem hardware;
+- a consistência entre o SDF, a ponte ROS↔Gazebo, o controlador e o compose;
 - o encerramento do grupo de processos do Gazebo.
 
-O CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) roda isso e
-também constrói a imagem, repete os testes dentro dela (incluindo os que
-precisam de ROS) e executa o teste de ponta a ponta
-[`scripts/integration_test.sh`](scripts/integration_test.sh). Esse teste treina
-o kNN, sobe o fluxo inteiro sem janela, confere que o cotovelo segue o
-classificador (0° ↔ 90°) e que tudo encerra limpo.
+O CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) roda isso,
+constrói a imagem, repete os testes dentro dela (incluindo os que dependem de
+ROS e MediaPipe) e executa dois testes de ponta a ponta:
+
+- [`integration_test.sh`](scripts/integration_test.sh): sEMG → kNN → cotovelo
+  0° ↔ 90°, com encerramento limpo;
+- [`capture_test.sh`](scripts/capture_test.sh): captura completa com o vídeo
+  do mestrado e o modo espelho.
 
 ## Resultados reproduzidos
 
 Com features RMS e o split original, os cinco classificadores dão **0,9444**,
 exatamente o `scores_of_classifiers.csv` do mestrado. Outras configurações
 estão no [inventário](docs/INVENTARIO_MESTRADO.md#resultados-reproduzidos).
-
-São 60 janelas de um único sujeito e 16 a 18 janelas de teste: cada erro vale
-6 pontos percentuais. Os números servem para conferir que o porte está fiel,
-**não como resultado científico**.
+São 60 janelas de um único sujeito e 16 a 18 janelas de teste: os números
+servem para conferir que o porte está fiel, **não como resultado científico**.
 
 ## Estrutura
 
 ```
-docker/                     Dockerfile, compose (base, janela, Myo), entrypoint
+docker/                     Dockerfile, compose (base, janela Linux/WSL, webcam, Myo)
 ros2_ws/src/
-  mestrado_emg/             features, treino, protocolo do Myo e nós ROS 2
-    mestrado_emg/nodes/     myo_driver, emg_replay, emg_classifier, angle_monitor
+  mestrado_emg/             features, treino, protocolo do Myo, controle e nós ROS 2
+  mestrado_capture/         ângulo do cotovelo (MediaPipe) e gravação rotulada
   mestrado_description/     modelo SDF do braço + mundo (Gazebo Jetty)
-  mestrado_bringup/         launch files, ponte ros_gz, gz_sim_group
-scripts/                    dados, stop.sh, teste de integração
-tests/                      pytest (+ legacy_reference: cópia literal do código original)
-docs/                       inventário do mestrado e decisões do porte
+  mestrado_bringup/         launch files (sim, mestrado, captura, espelho), ponte, gz_sim_group
+scripts/                    dados, stop.sh, testes de ponta a ponta
+tests/                      pytest (+ legacy_reference: cópias literais do código original)
+docs/                       como rodar, inventário do mestrado e decisões do porte
 data/, models/              fora do git (baixados / gerados)
 ```
 
@@ -178,19 +173,23 @@ data/, models/              fora do git (baixados / gerados)
 | `my_arm_def/.../capture_simple_sample.py`, `mod_sig_emg.py` | `mestrado_emg/features.py` |
 | `MyoRaw`/`BT` (nos três repositórios) | `mestrado_emg/myo_protocol.py` |
 | `my_arm_def/.../capture_braco_pos.py` + `myo_raw.py` | `nodes/myo_driver.py` + `nodes/emg_classifier.py` |
-| `my_arm_def/.../arm_controller.py` + `arm_control.cpp` | `JointPositionController` no `model.sdf` |
+| `my_arm_def/.../arm_controller.py` + plugin `arm_control.cpp` | `nodes/arm_controller.py` + `JointController` no `model.sdf` |
 | `my_arm_def/.../show_angles.py` (painel PyQt) | `nodes/angle_monitor.py` |
 | `braco_antebraco_garra.sdf`, `braco_com_mesa.world` | `mestrado_description/` |
 | `my_arm_definitive.launch.py` + `main.py` (launcher PyQt) | `mestrado_bringup/launch/` + `docker/compose.yaml` |
 | Botão "Stop" (`stop_myo_and_gazebo`) | `scripts/stop.sh` + `gz_sim_group` |
+| `Capture_EMG_Data/pose_module.py` | `mestrado_capture/pose.py` (MediaPipe Tasks) + `categories.py` |
+| `Capture_EMG_Data/capture_myo_*.py` (janela PyQt + gravação) | `nodes/elbow_angle_camera.py` + `nodes/emg_recorder.py` + `captura.launch.py` |
 
 ## Problemas conhecidos
 
 - O `parameter_bridge` do `ros_gz` às vezes cai com segfault (`exit code -11`)
   quando recebe dois SIGINT seguidos. É um defeito do pacote do ROS: ele estava
   encerrando de qualquer forma e não deixa nada preso.
-- Com a janela, o encerramento leva cerca de 3 s porque a interface do Gazebo
-  precisa ser finalizada pelo `gz_sim_group`.
+- A webcam normalmente não chega ao WSL2; no Windows use um vídeo gravado
+  (ver `docs/COMO_RODAR.md`).
+- O ângulo da câmera é uma projeção 2D: o braço precisa se mover num plano
+  paralelo à câmera, como no mestrado.
 
 ## Uso de IA
 

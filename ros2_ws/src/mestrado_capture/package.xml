@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>mestrado_capture</name>
+  <version>0.1.0</version>
+  <description>Capture_EMG_Data port: webcam elbow angle with MediaPipe and sEMG labelled by angle category.</description>
+  <maintainer email="clima@ufabc.edu.br">Caio Lima</maintainer>
+  <license>Apache-2.0</license>
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>mestrado_emg</exec_depend>
+  <exec_depend>python3-opencv</exec_depend>
+  <exec_depend>python3-numpy</exec_depend>
+  <exec_depend>python3-pandas</exec_depend>
+  <!-- mediapipe 1.0.1 is installed with pip in docker/Dockerfile (no rosdep key). -->
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

@@ -37,7 +37,7 @@ def generate_launch_description():
             ),
             DeclareLaunchArgument("model_path", description="bundle from train_legacy"),
             DeclareLaunchArgument(
-                "tty", default_value="", description="Myo dongle (empty = autodetect)"
+                "tty", default_value="auto", description="Myo dongle (auto = autodetect)"
             ),
             DeclareLaunchArgument("gui", default_value="true"),
             DeclareLaunchArgument("loop", default_value="true", description="loop the replay"),

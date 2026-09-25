@@ -41,9 +41,29 @@ services:
     <<: *ros
     command: >
       ros2 launch mestrado_bringup mestrado.launch.py
-      source:=${SOURCE:-replay} gui:=${GUI:-false} tty:=${MYO_TTY:-}
+      source:=${SOURCE:-replay} gui:=${GUI:-false} tty:=${MYO_TTY:-auto}
       csv_path:=/data/${CSV:-6_10_20220.csv}
       model_path:=/models/${MODEL:-knn_6-10-20220_mav_temporal_latest.joblib}
+
+  # Thesis capture tool: camera elbow angle + sEMG recorded by angle category.
+  # CSV goes to ../data. Add compose.camera.yaml for a webcam.
+  captura:
+    <<: *ros
+    command: >
+      ros2 launch mestrado_bringup captura.launch.py
+      emg:=${EMG:-myo} camera:=${CAMERA:-0} flip:=${FLIP:-true} arm:=${ARM:-right}
+      n_categories:=${N_CATEGORIES:-2} tolerance_deg:=${TOLERANCE:-10.0}
+      samples_per_category:=${SAMPLES:-1000} continuous:=${CONTINUOUS:-false}
+      show_window:=${SHOW_WINDOW:-true} csv_path:=/data/${CSV:-6_10_20220.csv}
+      tty:=${MYO_TTY:-auto} out_dir:=/data
+
+  # Mirror mode: the Gazebo arm copies the elbow seen by the camera (no sEMG).
+  espelho:
+    <<: *ros
+    command: >
+      ros2 launch mestrado_bringup espelho.launch.py
+      camera:=${CAMERA:-0} flip:=${FLIP:-true} arm:=${ARM:-right}
+      gui:=${GUI:-true} show_window:=${SHOW_WINDOW:-true}
 
   # Interactive shell with the workspace sourced.
   shell:

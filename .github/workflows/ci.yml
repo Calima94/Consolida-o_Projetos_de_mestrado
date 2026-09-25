@@ -36,7 +36,9 @@ jobs:
       - name: Validate compose files
         run: |
           docker compose -f docker/compose.yaml config -q
-          docker compose -f docker/compose.yaml -f docker/compose.gui.yaml config -q
+          for f in gui wsl camera myo; do
+            docker compose -f docker/compose.yaml -f docker/compose.$f.yaml config -q
+          done
       - name: Build image (ROS 2 Lyrical + Gazebo Jetty)
         run: docker build -f docker/Dockerfile -t mestrado-ros:lyrical .
       - name: Unit tests inside the image (incl. ROS message helpers)
@@ -47,3 +49,7 @@ jobs:
         run: >
           docker run --rm --init -v "$PWD/data:/data" -v "$PWD/scripts:/scripts"
           mestrado-ros:lyrical /scripts/integration_test.sh
+      - name: End-to-end capture tool (thesis video + replayed sEMG) + mirror mode
+        run: >
+          docker run --rm --init -v "$PWD/data:/data" -v "$PWD/scripts:/scripts"
+          mestrado-ros:lyrical /scripts/capture_test.sh

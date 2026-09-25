@@ -1,6 +1,9 @@
 # Pass the Myo BLED112 dongle into the container. On Windows attach it to
 # WSL2 first with usbipd (https://learn.microsoft.com/windows/wsl/connect-usb).
 services:
+  captura:
+    devices:
+      - ${MYO_TTY:-/dev/ttyACM0}:${MYO_TTY:-/dev/ttyACM0}
   sim:
     devices:
       - ${MYO_TTY:-/dev/ttyACM0}:${MYO_TTY:-/dev/ttyACM0}

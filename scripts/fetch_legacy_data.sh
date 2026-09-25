@@ -7,6 +7,8 @@
 # - training_matrix_csv_m_class.csv: the feature matrix the thesis trained on
 # - scores_of_classifiers.csv: the historical test scores
 # The last two are the golden references of tests/test_training.py.
+# - test_2_05.avi: the video recorded by the thesis capture tool
+#   (Calima94/Capture_EMG_Data), used to test the capture without a webcam.
 set -euo pipefail
 
 COMMIT="20fca8ad610ea631fc0a992e652dbc06f7081070"
@@ -27,6 +29,12 @@ for f in "${FILES[@]}"; do
   echo "ok ${f}"
 done
 
+CAPTURE_COMMIT="a1252990150700a5dcd1e7fdd374ad389c138aaf"
+curl -fsSL --retry 3 \
+  "https://raw.githubusercontent.com/Calima94/Capture_EMG_Data/${CAPTURE_COMMIT}/Videos/test_2_05.avi" \
+  -o "${DEST}/test_2_05.avi"
+echo "ok Videos/test_2_05.avi"
+
 cd "$DEST"
 sha256sum -c <<'SUMS'
 662982f2cfea591dc9e120bc1caa514b25fd834d52ced50f986eb0be8376a6a8  6_10_20220.csv
@@ -34,4 +42,5 @@ sha256sum -c <<'SUMS'
 f6a81bb10319197e6553539c3062b2bd6efe2ccf32a12dd89b9493084786b686  train_with_openCV_list_16_051.csv
 94ec06863d112079480051ffca5e79652bd4e1ab07bdd9c6c7070de2cfcec5f8  training_matrix_csv_m_class.csv
 4646c49a89365d2f68ccdb8936c5e213e61b305e1bcb34c58d3a8c450a848e6c  scores_of_classifiers.csv
+6fc4f16d0e3c3acb928282aa3f3c6a089da2499875bca59b9d82623c77310cee  test_2_05.avi
 SUMS

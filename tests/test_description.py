@@ -11,6 +11,7 @@ SRC = Path(__file__).resolve().parents[1] / "ros2_ws" / "src"
 MODEL = SRC / "mestrado_description" / "models" / "braco_antebraco_garra" / "model.sdf"
 BRIDGE = SRC / "mestrado_bringup" / "config" / "bridge.yaml"
 COMMON = SRC / "mestrado_emg" / "mestrado_emg" / "nodes" / "common.py"
+ARM_CONTROLLER = SRC / "mestrado_emg" / "mestrado_emg" / "nodes" / "arm_controller.py"
 
 # Values from my_arm_def/src/my_arm_def_cpp_pkg/models/braco_antebraco_garra.sdf
 LEGACY_MASSES = {
@@ -46,6 +47,15 @@ def _common_constants():
     }
 
 
+def _controller_joints():
+    """JOINTS dict of arm_controller.py: joint -> (topic prefix, kp)."""
+    tree = ast.parse(ARM_CONTROLLER.read_text())
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and node.targets[0].id == "JOINTS":
+            return ast.literal_eval(node.value)
+    raise AssertionError("JOINTS not found")
+
+
 def test_masses_are_the_thesis_ones(model):
     masses = {ln.get("name"): float(ln.findtext("inertial/mass")) for ln in model.findall("link")}
     assert masses == LEGACY_MASSES
@@ -70,14 +80,27 @@ def test_velocity_controlled_joints_have_effort_limits(model):
             assert float(j.findtext("axis/limit/effort")) > 0
 
 
-def test_controller_topics_are_bridged(model, bridge):
-    plugin_topics = {
-        p.findtext("topic")
+def test_velocity_controllers_are_bridged_and_driven(model, bridge):
+    plugins = {
+        p.findtext("joint_name"): p.findtext("topic")
         for p in model.findall("plugin")
-        if p.get("name") == "gz::sim::systems::JointPositionController"
+        if p.get("name") == "gz::sim::systems::JointController"
     }
     ros_to_gz = {b["gz_topic_name"] for b in bridge if b["direction"] == "ROS_TO_GZ"}
-    assert plugin_topics == ros_to_gz
+    assert set(plugins.values()) == ros_to_gz
+    # arm_controller publishes exactly those velocity topics, one per joint
+    joints = _controller_joints()
+    assert {j: f"{prefix}/cmd_vel" for j, (prefix, _) in joints.items()} == plugins
+
+
+def test_controller_uses_thesis_gains():
+    gains = {j: kp for j, (_, kp) in _controller_joints().items()}
+    assert gains == {
+        "shoulder_joint": 1.0,
+        "elbow_joint": 1.0,
+        "gripper_left_joint": 10.0,
+        "gripper_right_joint": 10.0,
+    }
 
 
 def test_joint_state_topic_is_bridged(model, bridge):
@@ -86,8 +109,8 @@ def test_joint_state_topic_is_bridged(model, bridge):
     assert gz_to_ros[jsp.findtext("topic")] == _common_constants()["JOINT_STATES_TOPIC"]
 
 
-def test_classifier_publishes_on_bridged_topics(bridge):
-    ros_topics = {b["ros_topic_name"] for b in bridge}
+def test_classifier_targets_are_controller_inputs():
     consts = _common_constants()
-    assert consts["SHOULDER_CMD_TOPIC"] in ros_topics
-    assert consts["ELBOW_CMD_TOPIC"] in ros_topics
+    targets = {f"{prefix}/cmd_pos" for prefix, _ in _controller_joints().values()}
+    assert consts["SHOULDER_CMD_TOPIC"] in targets
+    assert consts["ELBOW_CMD_TOPIC"] in targets

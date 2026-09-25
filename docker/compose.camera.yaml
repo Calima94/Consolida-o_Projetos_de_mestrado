@@ -1,0 +1,15 @@
+# Pass a webcam into the container (Linux: usually /dev/video0).
+#   docker compose -f docker/compose.yaml -f docker/compose.gui.yaml \
+#     -f docker/compose.camera.yaml up espelho
+# On Windows/WSL2 a webcam is usually not exposed to Linux; use a recorded
+# video instead (CAMERA=/data/video.mp4), see docs/COMO_RODAR.md.
+x-camera: &camera
+  devices:
+    - ${CAMERA_DEVICE:-/dev/video0}:/dev/video0
+  group_add:
+    - video
+
+services:
+  captura: *camera
+  espelho: *camera
+  shell: *camera

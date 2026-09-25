@@ -1,4 +1,6 @@
-"""Gazebo Jetty with the thesis arm + ROS <-> Gazebo bridge.
+"""Gazebo Jetty with the thesis arm, its P position controller and the ROS <-> Gazebo bridge.
+
+Send joint targets (radians) on /arm/<joint>/cmd_pos.
 
     ros2 launch mestrado_bringup sim.launch.py            # with GUI
     ros2 launch mestrado_bringup sim.launch.py gui:=false # headless
@@ -50,6 +52,8 @@ def generate_launch_description():
             ),
             DeclareLaunchArgument("gui", default_value="true", description="open the Gazebo GUI"),
             OpaqueFunction(function=_gazebo),
+            # Thesis P position loop: /arm/<joint>/cmd_pos -> /arm/<joint>/cmd_vel
+            Node(package="mestrado_emg", executable="arm_controller", output="screen"),
             Node(
                 package="ros_gz_bridge",
                 executable="parameter_bridge",

@@ -18,8 +18,8 @@
 set -u
 
 GRACE="${GRACE:-10}"
-LAUNCH_PAT='ros2 launch mestrado_bringup'
-PROC_PAT="${LAUNCH_PAT}|gz-sim-main|gz-sim-gui-client|ruby .*gz sim|parameter_bridge|mestrado_emg/(myo_driver|emg_replay|emg_classifier|angle_monitor)"
+LAUNCH_PAT='bin/ros2 launch mestrado_bringup'  # the ros2 CLI process, not shells whose command line mentions it
+PROC_PAT="${LAUNCH_PAT}|gz-sim-main|gz-sim-gui-client|ruby .*gz sim|parameter_bridge|mestrado_emg/(myo_driver|emg_replay|emg_classifier|angle_monitor|arm_controller)|mestrado_capture/(elbow_angle_camera|emg_recorder)"
 
 # Host side: delegate to Docker Compose (init + stop_signal SIGINT in compose.yaml).
 if [ ! -f /.dockerenv ] && command -v docker >/dev/null 2>&1; then

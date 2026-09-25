@@ -1,0 +1,22 @@
+# Windows 11 + WSL2 (WSLg): windows of Gazebo and of the camera tool.
+# Run the docker compose commands from the WSL Ubuntu terminal:
+#   GUI=true docker compose -f docker/compose.yaml -f docker/compose.wsl.yaml up sim
+# WSL has no /dev/dri, so OpenGL falls back to software rendering (Mesa
+# llvmpipe): slower, but enough for this arm.
+x-wslg: &wslg
+  environment:
+    - DISPLAY=${DISPLAY:-:0}
+    - WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-wayland-0}
+    - XDG_RUNTIME_DIR=/mnt/wslg/runtime-dir
+    - PULSE_SERVER=/mnt/wslg/PulseServer
+    - QT_X11_NO_MITSHM=1
+    - LIBGL_ALWAYS_SOFTWARE=1
+  volumes:
+    - /tmp/.X11-unix:/tmp/.X11-unix:rw
+    - /mnt/wslg:/mnt/wslg
+
+services:
+  sim: *wslg
+  captura: *wslg
+  espelho: *wslg
+  shell: *wslg

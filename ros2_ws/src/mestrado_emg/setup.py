@@ -22,6 +22,7 @@ setup(
             "emg_replay = mestrado_emg.nodes.emg_replay:main",
             "emg_classifier = mestrado_emg.nodes.emg_classifier:main",
             "angle_monitor = mestrado_emg.nodes.angle_monitor:main",
+            "arm_controller = mestrado_emg.nodes.arm_controller:main",
             "train_legacy = mestrado_emg.training:main",
         ],
     },

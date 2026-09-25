@@ -7,7 +7,7 @@ collecting 50 samples into a global list, it streams every notification to
 Parameters
 ----------
 tty : str
-    Serial device of the dongle; empty string auto-detects (USB 2458:0001).
+    Serial device of the dongle; ``auto`` (or empty) auto-detects (USB 2458:0001).
 emg_mode : int
     0x02 (filtered 200 Hz, used in the thesis) or 0x03 (unfiltered 200 Hz).
 frame_id : str
@@ -43,7 +43,7 @@ G = 9.80665
 class MyoDriverNode(Node):
     def __init__(self) -> None:
         super().__init__("myo_driver")
-        self.declare_parameter("tty", "")
+        self.declare_parameter("tty", "auto")
         self.declare_parameter("emg_mode", 0x02)
         self.declare_parameter("frame_id", "myo")
         self.frame_id = self.get_parameter("frame_id").value
@@ -53,7 +53,8 @@ class MyoDriverNode(Node):
         self._pending: list[tuple[int, ...]] = []
         self._stop = threading.Event()
 
-        tty = self.get_parameter("tty").value or None
+        tty = self.get_parameter("tty").value
+        tty = None if tty in ("", "auto") else tty
         self.myo = MyoRaw(tty, emg_mode=int(self.get_parameter("emg_mode").value))
         self.myo.add_emg_handler(self._on_emg)
         self.myo.add_imu_handler(self._on_imu)
