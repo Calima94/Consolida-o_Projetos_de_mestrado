@@ -332,7 +332,10 @@ class MyoRaw:
             self.write_attr(0x28, b"\x01\x00")
             self.write_attr(0x1D, b"\x01\x00")
             c, emg_hz, emg_smooth, imu_hz = 1000, 50, 100, 50
-            self.write_attr(0x19, pack("BBBBHBBBBB", 2, 9, 2, 1, c, emg_smooth, c // emg_hz, imu_hz, 0, 0))
+            self.write_attr(
+                0x19,
+                pack("BBBBHBBBBB", 2, 9, 2, 1, c, emg_smooth, c // emg_hz, imu_hz, 0, 0),
+            )
         else:
             self.write_attr(0x1D, b"\x01\x00")  # IMU notifications
             self.write_attr(0x24, b"\x02\x00")  # on/off-arm indications

@@ -2,14 +2,22 @@
 
     ros2 launch mestrado_bringup sim.launch.py            # with GUI
     ros2 launch mestrado_bringup sim.launch.py gui:=false # headless
+
+Gazebo is started through ``gz_sim_group`` instead of
+``ros_gz_sim/gz_sim.launch.py``. That launch file runs ``gz sim`` via
+``/bin/sh -c`` (dash on Ubuntu), which does not forward SIGINT, and with the
+GUI ``gz sim`` itself does not forward it to the server and GUI processes:
+on shutdown they were left orphaned -- the "Gazebo keeps running after Stop"
+problem the thesis worked around with ``killall gzserver gzclient``.
+``gz_sim_group`` sends every stop signal to the whole Gazebo process group.
+The model path comes from the mestrado_description environment hook.
 """
 
 import os
 
-from ament_index_python.packages import get_package_share_directory
+from ament_index_python.packages import get_package_prefix, get_package_share_directory
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, OpaqueFunction
-from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.actions import DeclareLaunchArgument, ExecuteProcess, OpaqueFunction, Shutdown
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
@@ -17,13 +25,17 @@ from launch_ros.actions import Node
 def _gazebo(context):
     world = LaunchConfiguration("world").perform(context)
     gui = LaunchConfiguration("gui").perform(context).lower() in ("1", "true", "yes")
-    gz_args = f"-r {world}" if gui else f"-r -s --headless-rendering {world}"
+    mode = ["-r"] if gui else ["-r", "-s", "--headless-rendering"]
+    wrapper = os.path.join(
+        get_package_prefix("mestrado_bringup"), "lib", "mestrado_bringup", "gz_sim_group"
+    )
     return [
-        IncludeLaunchDescription(
-            PythonLaunchDescriptionSource(
-                os.path.join(get_package_share_directory("ros_gz_sim"), "launch", "gz_sim.launch.py")
-            ),
-            launch_arguments={"gz_args": gz_args, "on_exit_shutdown": "true"}.items(),
+        ExecuteProcess(
+            cmd=[wrapper, "gz", "sim", *mode, world],
+            name="gazebo",
+            output="screen",
+            shell=False,
+            on_exit=Shutdown(reason="Gazebo exited"),
         )
     ]
 

@@ -52,3 +52,33 @@ def msg_to_samples(msg: Float32MultiArray) -> np.ndarray:
         raise ValueError(f"layout says {n}x{c} but data has {data.size} values")
     # -> [n_samples, n_channels]
     return data.reshape(n, c)
+
+
+def spin_node(node_factory, args: list[str] | None = None) -> None:
+    """Run a node until Ctrl+C / SIGINT / SIGTERM and clean up exactly once.
+
+    On ``docker compose stop`` or Ctrl+C the node can receive SIGINT twice
+    (once from the terminal/tini process group, once forwarded by
+    ``ros2 launch``). The second one must not abort cleanup -- for the Myo
+    driver that is where the dongle is disconnected. If the node defines
+    ``shutdown()``, it is called before ``destroy_node()``.
+    """
+    import signal
+
+    import rclpy
+    from rclpy.executors import ExternalShutdownException
+
+    rclpy.init(args=args)
+    node = None
+    try:
+        node = node_factory()
+        rclpy.spin(node)
+    except (KeyboardInterrupt, ExternalShutdownException):
+        pass
+    finally:
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
+        if node is not None:
+            if hasattr(node, "shutdown"):
+                node.shutdown()
+            node.destroy_node()
+        rclpy.try_shutdown()

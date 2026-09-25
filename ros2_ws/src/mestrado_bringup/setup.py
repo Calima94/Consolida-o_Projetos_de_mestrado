@@ -14,6 +14,7 @@ setup(
         ("share/" + package_name + "/launch", glob("launch/*.launch.py")),
         ("share/" + package_name + "/config", glob("config/*.yaml")),
     ],
+    scripts=["scripts/gz_sim_group"],
     install_requires=["setuptools"],
     zip_safe=True,
     maintainer="Caio Lima",

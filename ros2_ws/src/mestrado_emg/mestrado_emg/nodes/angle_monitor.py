@@ -8,12 +8,16 @@ from __future__ import annotations
 
 import math
 
-import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import JointState
 from std_msgs.msg import Float64
 
-from mestrado_emg.nodes.common import ELBOW_CMD_TOPIC, JOINT_STATES_TOPIC, SHOULDER_CMD_TOPIC
+from mestrado_emg.nodes.common import (
+    ELBOW_CMD_TOPIC,
+    JOINT_STATES_TOPIC,
+    SHOULDER_CMD_TOPIC,
+    spin_node,
+)
 
 
 class AngleMonitorNode(Node):
@@ -40,26 +44,15 @@ class AngleMonitorNode(Node):
 
     def _report(self) -> None:
         d = math.degrees
+        t, a = self.target, self.actual
         self.get_logger().info(
-            "ombro alvo {:6.1f} / atual {:6.1f} deg | cotovelo alvo {:6.1f} / atual {:6.1f} deg".format(
-                d(self.target["shoulder_joint"]),
-                d(self.actual["shoulder_joint"]),
-                d(self.target["elbow_joint"]),
-                d(self.actual["elbow_joint"]),
-            )
+            f"ombro alvo {d(t['shoulder_joint']):6.1f} / atual {d(a['shoulder_joint']):6.1f} deg | "
+            f"cotovelo alvo {d(t['elbow_joint']):6.1f} / atual {d(a['elbow_joint']):6.1f} deg"
         )
 
 
 def main(args: list[str] | None = None) -> None:
-    rclpy.init(args=args)
-    node = AngleMonitorNode()
-    try:
-        rclpy.spin(node)
-    except KeyboardInterrupt:
-        pass
-    finally:
-        node.destroy_node()
-        rclpy.try_shutdown()
+    spin_node(AngleMonitorNode, args)
 
 
 if __name__ == "__main__":

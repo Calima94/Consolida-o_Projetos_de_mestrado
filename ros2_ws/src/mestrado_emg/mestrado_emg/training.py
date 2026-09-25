@@ -203,7 +203,9 @@ def train_all(
 
     samples, labels = load_legacy_csv(csv_path)
     if samples.shape[1] != config.n_channels:
-        raise ValueError(f"{csv_path} has {samples.shape[1]} channels, config expects {config.n_channels}")
+        raise ValueError(
+            f"{csv_path} has {samples.shape[1]} channels, config expects {config.n_channels}"
+        )
     ds = build_dataset(samples, labels, config)
     if len(ds.class_labels) > len(class_angles_deg):
         raise ValueError("more classes than entries in class_angles_deg")

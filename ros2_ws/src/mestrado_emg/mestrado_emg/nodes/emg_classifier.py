@@ -27,7 +27,6 @@ from __future__ import annotations
 import math
 
 import numpy as np
-import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Imu
 from std_msgs.msg import Float32MultiArray, Float64, Int32
@@ -41,6 +40,7 @@ from mestrado_emg.nodes.common import (
     IMU_TOPIC,
     SHOULDER_CMD_TOPIC,
     msg_to_samples,
+    spin_node,
 )
 from mestrado_emg.training import load_bundle
 
@@ -106,15 +106,7 @@ class EmgClassifierNode(Node):
 
 
 def main(args: list[str] | None = None) -> None:
-    rclpy.init(args=args)
-    node = EmgClassifierNode()
-    try:
-        rclpy.spin(node)
-    except KeyboardInterrupt:
-        pass
-    finally:
-        node.destroy_node()
-        rclpy.try_shutdown()
+    spin_node(EmgClassifierNode, args)
 
 
 if __name__ == "__main__":

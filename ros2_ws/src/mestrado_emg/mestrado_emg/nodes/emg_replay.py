@@ -23,11 +23,10 @@ loop : bool
 from __future__ import annotations
 
 import numpy as np
-import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Float32MultiArray, Int32
 
-from mestrado_emg.nodes.common import EMG_TOPIC, LABEL_TOPIC, samples_to_msg
+from mestrado_emg.nodes.common import EMG_TOPIC, LABEL_TOPIC, samples_to_msg, spin_node
 from mestrado_emg.training import load_legacy_csv
 
 
@@ -72,15 +71,7 @@ class EmgReplayNode(Node):
 
 
 def main(args: list[str] | None = None) -> None:
-    rclpy.init(args=args)
-    node = EmgReplayNode()
-    try:
-        rclpy.spin(node)
-    except KeyboardInterrupt:
-        pass
-    finally:
-        node.destroy_node()
-        rclpy.try_shutdown()
+    spin_node(EmgReplayNode, args)
 
 
 if __name__ == "__main__":

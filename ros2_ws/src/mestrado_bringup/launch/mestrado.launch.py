@@ -29,10 +29,16 @@ def generate_launch_description():
     bringup = get_package_share_directory("mestrado_bringup")
     return LaunchDescription(
         [
-            DeclareLaunchArgument("source", default_value="replay", description="replay | myo | none"),
-            DeclareLaunchArgument("csv_path", default_value="", description="CSV for source:=replay"),
+            DeclareLaunchArgument(
+                "source", default_value="replay", description="replay | myo | none"
+            ),
+            DeclareLaunchArgument(
+                "csv_path", default_value="", description="CSV for source:=replay"
+            ),
             DeclareLaunchArgument("model_path", description="bundle from train_legacy"),
-            DeclareLaunchArgument("tty", default_value="", description="Myo dongle (empty = autodetect)"),
+            DeclareLaunchArgument(
+                "tty", default_value="", description="Myo dongle (empty = autodetect)"
+            ),
             DeclareLaunchArgument("gui", default_value="true"),
             DeclareLaunchArgument("loop", default_value="true", description="loop the replay"),
             IncludeLaunchDescription(
@@ -43,7 +49,10 @@ def generate_launch_description():
                 package="mestrado_emg",
                 executable="emg_replay",
                 parameters=[
-                    {"csv_path": LaunchConfiguration("csv_path"), "loop": LaunchConfiguration("loop")}
+                    {
+                        "csv_path": LaunchConfiguration("csv_path"),
+                        "loop": LaunchConfiguration("loop"),
+                    }
                 ],
                 condition=_source_is("replay"),
                 output="screen",

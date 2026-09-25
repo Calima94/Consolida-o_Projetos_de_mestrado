@@ -10,8 +10,19 @@ x-ros: &ros
     dockerfile: docker/Dockerfile
   network_mode: host
   ipc: host
+  # Without these, `ros2 launch` runs as PID 1, ignores the SIGTERM sent by
+  # `docker compose stop` / Ctrl+C and gets SIGKILLed after the timeout
+  # (measured: 30 s, exit 137). tini forwards the signal and SIGINT triggers
+  # the same clean shutdown as Ctrl+C in a terminal (measured: 0.4 s).
+  init: true
+  stop_signal: SIGINT
+  stop_grace_period: 15s
   environment:
     - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}
+    # tini sends the stop signal to the whole process group, like Ctrl+C in a
+    # terminal. Otherwise gz sim (behind `sh -c ruby ...`) misses the SIGINT
+    # and launch has to escalate to SIGTERM after 5 s.
+    - TINI_KILL_PROCESS_GROUP=1
   volumes:
     - ../data:/data
     - ../models:/models

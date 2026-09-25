@@ -35,7 +35,7 @@ from mestrado_emg.myo_protocol import (
     QUATERNION_SCALE,
     MyoRaw,
 )
-from mestrado_emg.nodes.common import EMG_TOPIC, IMU_TOPIC, samples_to_msg
+from mestrado_emg.nodes.common import EMG_TOPIC, IMU_TOPIC, samples_to_msg, spin_node
 
 G = 9.80665
 
@@ -98,16 +98,7 @@ class MyoDriverNode(Node):
 
 
 def main(args: list[str] | None = None) -> None:
-    rclpy.init(args=args)
-    node = MyoDriverNode()
-    try:
-        rclpy.spin(node)
-    except KeyboardInterrupt:
-        pass
-    finally:
-        node.shutdown()
-        node.destroy_node()
-        rclpy.try_shutdown()
+    spin_node(MyoDriverNode, args)
 
 
 if __name__ == "__main__":

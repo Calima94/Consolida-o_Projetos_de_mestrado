@@ -62,8 +62,10 @@ def main():
     agree = sum(p == lbl for p, lbl in node.pairs) / n if n else 0.0
     lo = math.degrees(min(node.elbow)) if node.elbow else math.nan
     hi = math.degrees(max(node.elbow)) if node.elbow else math.nan
-    print(f"predictions={n} agreement={agree:.3f} elbow_range_deg=[{lo:.1f}, {hi:.1f}] "
-          f"joint_state_msgs={len(node.elbow)}")
+    print(
+        f"predictions={n} agreement={agree:.3f} elbow_range_deg=[{lo:.1f}, {hi:.1f}] "
+        f"joint_state_msgs={len(node.elbow)}"
+    )
     ok = n > 0 and agree >= args.min_agreement and lo < 10.0 and hi > 70.0
     print("PASS" if ok else "FAIL")
     node.destroy_node()

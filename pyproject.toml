@@ -1,0 +1,18 @@
+# Tooling config for the pure-Python checks (ruff + pytest). The ROS 2 packages
+# themselves are built with colcon inside the Docker image.
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = ["tests/legacy_reference"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+# Filter coefficients copied digit-for-digit from the thesis.
+"ros2_ws/src/mestrado_emg/mestrado_emg/features.py" = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["ros2_ws/src/mestrado_emg", "tests"]
+filterwarnings = ["error::FutureWarning"]
