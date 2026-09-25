@@ -5,8 +5,11 @@ roda dentro do Docker: você não instala ROS nem Gazebo no seu sistema.
 
 > **O que foi testado e o que não foi.** Todos os comandos abaixo foram
 > executados num Linux sem monitor (Gazebo sem janela e janelas num display
-> virtual). **Não** foram testados no Windows/WSL2, com monitor de verdade nem
-> com webcam. Se algo falhar nesses pontos, a seção
+> virtual). No **Windows 11 + WSL2 + Docker Desktop** foi testado o
+> [passo 4](#4-ver-o-braço-no-gazebo): a janela do Gazebo abre e o braço se
+> move (Windows 11 build 26200, WSL 2.7.14.0, WSLg 1.0.73.2, Ubuntu 26.04.1,
+> Docker Desktop 4.92.0). Os passos 5 a 7 no Windows, o Linux com monitor de
+> verdade e a webcam **ainda não** foram testados. Se algo falhar, a seção
 > [Se algo der errado](#se-algo-der-errado) cobre os casos mais prováveis.
 
 Escolha o seu sistema:
@@ -259,8 +262,9 @@ Qualquer uma destas formas encerra tudo, Gazebo inclusive:
 | `permission denied` no `docker` | Linux: faça os passos pós-instalação e abra outro terminal. Windows: o Docker Desktop precisa estar aberto e com a integração WSL ligada |
 | A janela não abre (Linux) | Rode `xhost +local:` e confira se usou `-f docker/compose.gui.yaml` |
 | A janela não abre (Windows) | `echo $DISPLAY` no Ubuntu deve dar `:0`; atualize o WSL (`wsl --update` no PowerShell) e confira se usou `-f docker/compose.wsl.yaml` |
+| `timed out waiting for /mnt/wslg to be automounted` (Windows) | Seu `docker/compose.wsl.yaml` é anterior à correção: atualize o repositório (`git pull`). O Docker Desktop não consegue montar `/mnt/wslg` (nem `/mnt/host/wslg`); a versão atual usa só o socket X11 em `/tmp/.X11-unix`, que basta para a janela do Gazebo |
 | `error gathering device information ... /dev/dri` (Linux sem aceleração gráfica) | Apague os blocos `devices:` do `docker/compose.gui.yaml`: sem `/dev/dri` o OpenGL do container cai sozinho para renderização por software. Ou rode sem janela (`GUI=false`) |
-| Gazebo lento no Windows | Esperado: no WSL a renderização é por software. O braço é simples e continua utilizável |
+| Gazebo lento no Windows | Esperado: no WSL a renderização é por software (`LIBGL_ALWAYS_SOFTWARE=1`). O braço é simples e continua utilizável. **Não** tente acelerar pela GPU com `/dev/dxg` e o driver `d3d12` do Mesa: foi testado (RTX 5060) e a vista 3D fica preta, sem nenhum quadro desenhado; detalhes no topo de `docker/compose.wsl.yaml` |
 | `ros2 topic pub` não mexe o braço | Deixe o `-w 1`: ele espera o simulador ser descoberto antes de publicar |
 | Espelho marca o braço errado | Troque `FLIP` (`true`/`false`) ou `ARM=left` |
 | Captura não termina | Alguma categoria não recebe amostras: aumente `TOLERANCE`, reduza `SAMPLES`, ou encerre com Ctrl+C (o que foi gravado é salvo) |

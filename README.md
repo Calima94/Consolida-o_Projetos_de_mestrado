@@ -32,7 +32,7 @@ sEMG (Myo, ou CSV gravado) ──► /emg/raw ──► emg_classifier ──►
 | Modo espelho (o braço do Gazebo copia o seu, via câmera) | ✅ Novo; testado com o vídeo do mestrado |
 | Encerrar com Ctrl+C / `docker compose stop` / `scripts/stop.sh` | ✅ Sem processos sobrando (medido) |
 | Driver do Myo | ⚠️ Portado e com testes do protocolo, **mas nunca rodou com um Myo de verdade** |
-| Janelas (Gazebo e câmera) | ⚠️ Testadas só em display virtual (Xvfb); falta testar com monitor, no Windows/WSL2 e com webcam |
+| Janelas (Gazebo e câmera) | ✅ Windows 11 + WSL2 + Docker Desktop: janela do Gazebo abre e o braço se move (renderização por software). ⚠️ Linux com monitor e a janela da câmera só testados em display virtual (Xvfb); webcam não testada |
 
 O que mudou em relação ao mestrado, e por quê, está em
 [`docs/DECISOES.md`](docs/DECISOES.md). Os problemas encontrados no código
