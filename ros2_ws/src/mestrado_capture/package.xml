@@ -5,7 +5,9 @@
   <version>0.1.0</version>
   <description>Capture_EMG_Data port: webcam elbow angle with MediaPipe and sEMG labelled by angle category.</description>
   <maintainer email="clima@ufabc.edu.br">Caio Lima</maintainer>
-  <license>Apache-2.0</license>
+  <license>MIT</license>
+  <!-- Angle/category logic derives from Capture_EMG_Data, whose base is by
+       Alan Mendes (no license file upstream): see THIRD_PARTY_NOTICES.md. -->
 
   <exec_depend>rclpy</exec_depend>
   <exec_depend>std_msgs</exec_depend>

@@ -1,5 +1,8 @@
 """Elbow angle from a camera image, ported from Capture_EMG_Data/pose_module.py.
 
+The thesis tool was built on a base version by Alan Mendes
+(https://github.com/alans96/arm_robotics); see THIRD_PARTY_NOTICES.md.
+
 The thesis used the legacy MediaPipe "Solutions" API (``mp.solutions.pose``),
 which no longer exists in MediaPipe 1.x. This module uses the Tasks API
 (``PoseLandmarker``) with the same 33-landmark BlazePose topology, so the

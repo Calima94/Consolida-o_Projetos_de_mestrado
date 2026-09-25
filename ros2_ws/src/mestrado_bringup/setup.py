@@ -20,5 +20,5 @@ setup(
     maintainer="Caio Lima",
     maintainer_email="clima@ufabc.edu.br",
     description="Launch files for the master's thesis arm in Gazebo Jetty.",
-    license="Apache-2.0",
+    license="MIT",
 )

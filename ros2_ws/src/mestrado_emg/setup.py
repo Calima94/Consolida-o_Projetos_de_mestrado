@@ -15,7 +15,7 @@ setup(
     maintainer="Caio Lima",
     maintainer_email="clima@ufabc.edu.br",
     description="sEMG pipeline, drivers and classifier ported from the master's thesis.",
-    license="Apache-2.0",
+    license="MIT",
     entry_points={
         "console_scripts": [
             "myo_driver = mestrado_emg.nodes.myo_driver:main",

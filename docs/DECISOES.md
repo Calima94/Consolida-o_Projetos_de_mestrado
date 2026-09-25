@@ -88,10 +88,18 @@ Gazebo e da câmera (em display virtual); `docker compose stop` 0,5 s;
 commit fixo do `Train_Myo_Signals` e confere o SHA-256. Mesma regra do
 `semg-digital-twins`: dataset não se versiona, se referencia.
 
-**D11. Licença Apache-2.0 (pendente do Caio).** Mesma do `Capture_EMG_Data` e
-do `Train_Myo_Signals`, de onde vem parte do código (inclusive a cópia literal
-em `tests/legacy_reference`). O `semg-digital-twins` usa MIT (ADR-004).
-*Rever* se o Caio preferir alinhar com o `semg-digital-twins`.
+**D11. Licença MIT (decisão do Caio, 2026-09-25).** Alinha com o
+`semg-digital-twins` (ADR-004). A primeira versão usava Apache-2.0, herdada do
+`Capture_EMG_Data` e do `Train_Myo_Signals`; como o autor é o mesmo, ele pode
+relicenciar o próprio código. O código de terceiros fica com os seus termos em
+`THIRD_PARTY_NOTICES.md`:
+
+- myo-raw (Danny Zhu) e o fork do Alvipe são MIT, compatíveis. O aviso de
+  copyright passou a acompanhar o código, como a MIT exige; antes faltava;
+- a PyoConnect (Cosentino) não tem licença verificável;
+- a base da ferramenta de captura é de Alan Mendes, cujo repositório não tem
+  arquivo de licença. **Pendente:** a concordância dele para que essa parte
+  passe a MIT; até lá, ela segue os termos do `Capture_EMG_Data` (Apache-2.0).
 
 **D12. Capture_EMG_Data portado sem a interface PyQt.** Os campos da tela
 (número de categorias, tolerância, amostras) viraram argumentos do launch e

@@ -9,6 +9,9 @@ come from:
 - Fernando Cosentino, PyoConnect: http://www.fernandocosentino.net/pyoconnect
 - Alvaro Villoslada (Alvipe), myo-raw fork: https://github.com/Alvipe/myo-raw
 
+myo-raw is MIT-licensed, Copyright (c) 2014 Danny Zhu; its notice is in
+THIRD_PARTY_NOTICES.md at the repository root.
+
 Changes relative to the thesis code:
 
 - dropped the ``multichr``/``multiord`` helpers that branched on

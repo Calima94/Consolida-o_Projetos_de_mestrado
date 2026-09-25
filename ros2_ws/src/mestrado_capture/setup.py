@@ -15,7 +15,7 @@ setup(
     maintainer="Caio Lima",
     maintainer_email="clima@ufabc.edu.br",
     description="Webcam elbow angle (MediaPipe) and labelled sEMG recording.",
-    license="Apache-2.0",
+    license="MIT",
     entry_points={
         "console_scripts": [
             "elbow_angle_camera = mestrado_capture.nodes.elbow_angle_camera:main",

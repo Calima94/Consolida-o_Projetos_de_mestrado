@@ -5,7 +5,7 @@
   <version>0.1.0</version>
   <description>sEMG feature pipeline, Myo driver, CSV replay and classifier ported from the master's thesis.</description>
   <maintainer email="clima@ufabc.edu.br">Caio Lima</maintainer>
-  <license>Apache-2.0</license>
+  <license>MIT</license>
 
   <exec_depend>rclpy</exec_depend>
   <exec_depend>std_msgs</exec_depend>

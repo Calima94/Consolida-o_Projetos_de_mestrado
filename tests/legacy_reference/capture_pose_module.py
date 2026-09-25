@@ -1,6 +1,7 @@
 """Verbatim copy of category logic from Capture_EMG_Data/pose_module.py.
 
-Source: https://github.com/Calima94/Capture_EMG_Data (commit a125299), Apache-2.0.
+Source: https://github.com/Calima94/Capture_EMG_Data (commit a125299), Apache-2.0;
+base version by Alan Mendes (see THIRD_PARTY_NOTICES.md).
 The two static methods of PoseDetector, dedented and without @staticmethod,
 otherwise unchanged. Golden reference for tests/test_capture.py.
 Do not edit or reformat.

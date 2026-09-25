@@ -1,5 +1,8 @@
 """Labelling sEMG with elbow-angle categories, ported from Capture_EMG_Data.
 
+The thesis tool was built on a base version by Alan Mendes
+(https://github.com/alans96/arm_robotics); see THIRD_PARTY_NOTICES.md.
+
 Thesis behaviour (capture_myo_not_filtered_signal_200hz.py + pose_module.py):
 
 - categories are angles, by default ``[170, 90, 60, 45]`` deg, of which the

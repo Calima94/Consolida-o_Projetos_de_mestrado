@@ -5,7 +5,7 @@
   <version>0.1.0</version>
   <description>Launch files: Gazebo Jetty + bridge + sEMG chain of the master's thesis.</description>
   <maintainer email="clima@ufabc.edu.br">Caio Lima</maintainer>
-  <license>Apache-2.0</license>
+  <license>MIT</license>
 
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>

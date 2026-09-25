@@ -199,8 +199,11 @@ responsabilidade pelo conteúdo são do autor.
 
 ## Licença
 
-Apache-2.0, a mesma do `Capture_EMG_Data` e do `Train_Myo_Signals`
-(ver [D11](docs/DECISOES.md), pendente de confirmação).
+MIT, a mesma do `semg-digital-twins` (ver [`LICENSE`](LICENSE) e a decisão
+D11). O código de terceiros incluído mantém os seus termos, listados em
+[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md): o protocolo do Myo vem do
+myo-raw (MIT), e a lógica da ferramenta de captura tem base de Alan Mendes, cuja
+parte depende da concordância dele para passar a MIT.
 
 ## Autor
 
