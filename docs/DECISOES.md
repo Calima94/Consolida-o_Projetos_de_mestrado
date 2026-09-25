@@ -77,7 +77,9 @@ porta, com as mesmas causas do mestrado:
 - os nós usam `spin_node()`, que ignora um segundo SIGINT durante a limpeza,
   para o driver do Myo sempre conseguir desconectar;
 - `scripts/stop.sh` é o equivalente do botão: no host roda
-  `docker compose stop`; dentro do container, SIGINT e depois SIGTERM/SIGKILL
+  `docker stop` em todos os containers do projeto, incluindo os de
+  `docker compose run`, que o `docker compose stop` ignora; dentro do
+  container, SIGINT e depois SIGTERM/SIGKILL
   no que sobrar.
 
 Medido (2026-09-25, depois de D2 e D16): Ctrl+C 0,4 s, com ou sem as janelas do

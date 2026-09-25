@@ -249,8 +249,13 @@ Windows, o dongle precisa antes ser ligado ao WSL com
 Qualquer uma destas formas encerra tudo, Gazebo inclusive:
 
 - **Ctrl+C** no terminal onde rodou o comando;
-- `docker compose -f docker/compose.yaml stop`;
-- `./scripts/stop.sh` (o botão "Stop" do mestrado).
+- `./scripts/stop.sh` (o botão "Stop" do mestrado): para todos os containers
+  do projeto, tanto os de `up` quanto os de `run`;
+- `docker compose -f docker/compose.yaml stop`: só para os de `up`. Os de
+  `docker compose run` (como o do passo 4) ele **não** para.
+
+Antes de subir um simulador novo, confira com `docker ps` se não ficou outro
+rodando (veja a tabela abaixo).
 
 ---
 
@@ -266,6 +271,7 @@ Qualquer uma destas formas encerra tudo, Gazebo inclusive:
 | `error gathering device information ... /dev/dri` (Linux sem aceleração gráfica) | Apague os blocos `devices:` do `docker/compose.gui.yaml`: sem `/dev/dri` o OpenGL do container cai sozinho para renderização por software. Ou rode sem janela (`GUI=false`) |
 | Gazebo lento no Windows | Esperado: no WSL a renderização é por software (`LIBGL_ALWAYS_SOFTWARE=1`). O braço é simples e continua utilizável. **Não** tente acelerar pela GPU com `/dev/dxg` e o driver `d3d12` do Mesa: foi testado (RTX 5060) e a vista 3D fica preta, sem nenhum quadro desenhado; detalhes no topo de `docker/compose.wsl.yaml` |
 | `ros2 topic pub` não mexe o braço | Deixe o `-w 1`: ele espera o simulador ser descoberto antes de publicar |
+| Valores estranhos em `/joint_states`, ou o braço não obedece | Provavelmente há **dois simuladores rodando**: como tudo usa a rede do host, eles publicam nos mesmos tópicos e as leituras se misturam, sem erro nenhum. Confira com `docker ps`, pare tudo com `./scripts/stop.sh` e suba um só |
 | Espelho marca o braço errado | Troque `FLIP` (`true`/`false`) ou `ARM=left` |
 | Captura não termina | Alguma categoria não recebe amostras: aumente `TOLERANCE`, reduza `SAMPLES`, ou encerre com Ctrl+C (o que foi gravado é salvo) |
 | `Myo dongle not found!` | Confira o dispositivo (`ls /dev/ttyACM*`) e passe `MYO_TTY=/dev/ttyACM0` com `-f docker/compose.myo.yaml` |

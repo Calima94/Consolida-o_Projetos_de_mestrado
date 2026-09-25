@@ -4,7 +4,7 @@
 # to `ros2 launch`, then `killall gzserver gzclient gazebo`).
 #
 # Usage:
-#   scripts/stop.sh            # on the host: stops the compose services
+#   scripts/stop.sh            # on the host: stops this project's containers (up and run)
 #   scripts/stop.sh            # inside the container / native ROS: see below
 #   GRACE=20 scripts/stop.sh   # seconds to wait before escalating (default 10)
 #
@@ -21,12 +21,18 @@ GRACE="${GRACE:-10}"
 LAUNCH_PAT='bin/ros2 launch mestrado_bringup'  # the ros2 CLI process, not shells whose command line mentions it
 PROC_PAT="${LAUNCH_PAT}|gz-sim-main|gz-sim-gui-client|ruby .*gz sim|parameter_bridge|mestrado_emg/(myo_driver|emg_replay|emg_classifier|angle_monitor|arm_controller)|mestrado_capture/(elbow_angle_camera|emg_recorder)"
 
-# Host side: delegate to Docker Compose (init + stop_signal SIGINT in compose.yaml).
+# Host side: stop every running container of this compose project, including
+# one-off `docker compose run` containers (the guide's step 4 uses them).
+# `docker compose ps -q` and `docker compose stop` ignore those, so list with
+# -a and stop by id; they carry init + stop_signal SIGINT from compose.yaml.
 if [ ! -f /.dockerenv ] && command -v docker >/dev/null 2>&1; then
   compose_dir="$(cd "$(dirname "$0")/../docker" && pwd)"
-  if [ -n "$(docker compose -f "$compose_dir/compose.yaml" ps -q 2>/dev/null)" ]; then
-    echo "parando serviços do docker compose..."
-    exec docker compose -f "$compose_dir/compose.yaml" stop
+  ids="$(docker compose -f "$compose_dir/compose.yaml" ps -a -q --status running 2>/dev/null)"
+  if [ -n "$ids" ]; then
+    echo "parando $(echo "$ids" | wc -l) container(s) do projeto..."
+    # shellcheck disable=SC2086  # one id per word
+    docker stop -t "$GRACE" $ids >/dev/null && echo "encerrado"
+    exit $?
   fi
 fi
 

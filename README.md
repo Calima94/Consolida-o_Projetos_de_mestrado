@@ -67,8 +67,9 @@ CAMERA=/data/test_2_05.avi FLIP=false docker compose -f docker/compose.yaml -f d
 
 ### Encerrar
 
-Ctrl+C, `docker compose -f docker/compose.yaml stop` ou `./scripts/stop.sh`
-(o equivalente ao botão "Stop" do mestrado). Tempo medido: 0,4 s, com ou sem
+Ctrl+C, `./scripts/stop.sh` (o equivalente ao botão "Stop" do mestrado; para
+também os containers de `docker compose run`) ou
+`docker compose -f docker/compose.yaml stop` (só os de `up`). Tempo medido: 0,4 s, com ou sem
 janelas, sem processos sobrando. No mestrado era preciso
 `killall gzserver gzclient`; a causa e a correção estão na decisão D9.
 
