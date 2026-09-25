@@ -41,6 +41,33 @@ Windows; não precisa instalar servidor X.
    **Ubuntu**.
 4. Deixe o Docker Desktop aberto enquanto usar o projeto.
 
+> **Se o Docker Desktop disser "Virtualization not detected"** (ou o WSL
+> reclamar de virtualização), o processador está com a virtualização desligada
+> ou o Windows está sem os componentes necessários:
+>
+> 1. **Diagnóstico:** Gerenciador de Tarefas → *Desempenho* → *CPU* → linha
+>    **Virtualização**.
+> 2. **Se estiver "Desabilitado", ligue na BIOS/UEFI.** Para entrar:
+>    *Configurações → Sistema → Recuperação → Inicialização avançada → Reiniciar
+>    agora → Solução de problemas → Opções avançadas → Configurações de Firmware
+>    UEFI*. Procure **Intel Virtualization Technology / VT-x** (Intel) ou
+>    **SVM Mode / AMD-V** (AMD), ative, salve e saia.
+> 3. **Se já estiver "Habilitado"**, ative os componentes do Windows no
+>    PowerShell como administrador e reinicie:
+>
+>    ```powershell
+>    dism.exe /online /enable-feature /featurename:VirtualMachinePlatform /all /norestart
+>    dism.exe /online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart
+>    bcdedit /set hypervisorlaunchtype auto
+>    ```
+>
+>    Depois do reinício: `wsl --update` e `wsl --set-default-version 2`.
+> 4. Abra o Docker Desktop de novo.
+>
+> Em computador institucional, a BIOS pode estar protegida por senha; aí o
+> passo 2 depende da TI. Se o próprio Windows roda numa máquina virtual, é
+> preciso habilitar a virtualização aninhada no hospedeiro.
+
 ### 3. Conferir, no terminal do Ubuntu (WSL)
 
 ```bash
@@ -228,6 +255,7 @@ Qualquer uma destas formas encerra tudo, Gazebo inclusive:
 
 | Sintoma | O que fazer |
 |---|---|
+| Docker Desktop: "Virtualization not detected" | Virtualização desligada na BIOS ou componentes do Windows faltando: ver o quadro no [passo 2 do Windows](#2-instalar-o-docker-desktop) |
 | `permission denied` no `docker` | Linux: faça os passos pós-instalação e abra outro terminal. Windows: o Docker Desktop precisa estar aberto e com a integração WSL ligada |
 | A janela não abre (Linux) | Rode `xhost +local:` e confira se usou `-f docker/compose.gui.yaml` |
 | A janela não abre (Windows) | `echo $DISPLAY` no Ubuntu deve dar `:0`; atualize o WSL (`wsl --update` no PowerShell) e confira se usou `-f docker/compose.wsl.yaml` |
