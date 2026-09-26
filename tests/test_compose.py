@@ -23,11 +23,11 @@ def test_services_stop_cleanly():
     assert anchor["init"] is True
     assert anchor["stop_signal"] == "SIGINT"
     assert "TINI_KILL_PROCESS_GROUP=1" in anchor["environment"]
-    for name in ("sim", "captura", "espelho", "train", "shell"):
+    for name in ("sim", "captura", "espelho", "braco", "web", "train", "shell"):
         assert name in base["services"]
 
 
 @pytest.mark.parametrize("override", ["compose.gui.yaml", "compose.wsl.yaml"])
 def test_gui_overrides_cover_every_windowed_service(override):
     services = yaml.safe_load((DOCKER / override).read_text())["services"]
-    assert {"sim", "captura", "espelho"} <= set(services)
+    assert {"sim", "captura", "espelho", "braco"} <= set(services)

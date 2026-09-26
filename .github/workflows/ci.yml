@@ -36,7 +36,7 @@ jobs:
       - name: Validate compose files
         run: |
           docker compose -f docker/compose.yaml config -q
-          for f in gui wsl camera myo; do
+          for f in gui wsl camera myo desktop; do
             docker compose -f docker/compose.yaml -f docker/compose.$f.yaml config -q
           done
       - name: Build image (ROS 2 Lyrical + Gazebo Jetty)

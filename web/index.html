@@ -1,0 +1,652 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Braço do mestrado</title>
+<meta name="description" content="Pilota o braço do mestrado (Gazebo ou físico) pelo rosbridge: comando e realidade lado a lado.">
+<!--
+  Guia 1 of docs/VISAO_E_ARQUITETURA.md: browser -> websocket -> ROS 2 -> arm.
+  One file, no build and no external dependency (it must also work on a Pi or
+  a phone without internet). Served by the `web` service (docker/compose.yaml).
+
+  Talks to rosbridge with its JSON protocol directly (class RosBridge, below)
+  instead of roslib.js. Topics:
+    publishes   /arm/<joint>/cmd_pos       std_msgs/Float64 (rad; m for the fingers)
+    subscribes  /joint_states              what the arm did (Gazebo, or the real arm later)
+                /arm/joint_targets         what the controller is tracking
+                /arm/estop_active          emergency stop state (1 Hz + on change)
+    calls       /arm/estop                 std_srvs/SetBool
+  The stop and the control loop live in arm_controller, never here.
+
+  Geometry: mestrado_description/models/braco_antebraco_garra/model.sdf, in mm,
+  origin at the shoulder pivot. Shoulder and elbow turn about x, so the side
+  view (plane y-z, seen from +x) is exact; the fingers slide along x, out of
+  that plane, hence the separate front view of the gripper.
+-->
+<style>
+:root {
+  --bg: #f4f3ef;
+  --surface: #ffffff;
+  --ink: #1c1c1e;
+  --muted: #6c6b70;
+  --line: #e3e1db;
+  --real: #33353b;
+  --real-fill: #d9dadf;
+  --cmd: #2563eb;
+  --pedestal: #c9d3e6;
+  --ground: #b9b6ad;
+  --stop: #d42a1d;
+  --stop-ink: #ffffff;
+  --ok: #178a43;
+  --warn: #b86a00;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.05), 0 4px 16px rgb(0 0 0 / 0.04);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111113;
+    --surface: #1b1b1e;
+    --ink: #ececef;
+    --muted: #9b9aa2;
+    --line: #2d2d32;
+    --real: #e4e4e8;
+    --real-fill: #45464d;
+    --cmd: #74a6ff;
+    --pedestal: #2e3a52;
+    --ground: #4a4944;
+    --stop: #f04a3c;
+    --ok: #3ccf77;
+    --warn: #f0a638;
+    --shadow: none;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111113;
+  --surface: #1b1b1e;
+  --ink: #ececef;
+  --muted: #9b9aa2;
+  --line: #2d2d32;
+  --real: #e4e4e8;
+  --real-fill: #45464d;
+  --cmd: #74a6ff;
+  --pedestal: #2e3a52;
+  --ground: #4a4944;
+  --stop: #f04a3c;
+  --ok: #3ccf77;
+  --warn: #f0a638;
+  --shadow: none;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+
+header {
+  position: sticky; top: 0; z-index: 10;
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 16px;
+  padding-top: max(10px, env(safe-area-inset-top));
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--line);
+}
+header h1 { font-size: 17px; margin: 0; font-weight: 650; letter-spacing: -0.01em; }
+.titles { min-width: 0; flex: 1; }
+.status { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
+.status[data-s="ok"] .dot { background: var(--ok); }
+.status[data-s="warn"] .dot { background: var(--warn); }
+.status[data-s="off"] .dot { background: var(--stop); }
+
+.estop {
+  flex: none;
+  min-width: 112px; min-height: 48px;
+  padding: 0 18px;
+  border: 0; border-radius: 12px;
+  background: var(--stop); color: var(--stop-ink);
+  font-family: inherit; font-size: 16px; font-weight: 700; line-height: 1; letter-spacing: 0.06em;
+  cursor: pointer;
+  box-shadow: 0 2px 0 color-mix(in srgb, var(--stop) 60%, black);
+}
+.estop:active { transform: translateY(1px); box-shadow: none; }
+.estop[data-mode="release"] {
+  background: transparent; color: var(--stop);
+  border: 2px solid var(--stop); box-shadow: none;
+  letter-spacing: 0.02em;
+}
+.estop:disabled { opacity: 0.55; cursor: progress; }
+.estop:focus-visible, button:focus-visible, input:focus-visible { outline: 3px solid var(--cmd); outline-offset: 2px; }
+
+.banner {
+  display: none;
+  margin: 12px 16px 0;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-weight: 600;
+}
+.banner.show { display: block; }
+.banner.stop { background: color-mix(in srgb, var(--stop) 14%, var(--surface)); color: var(--stop); border: 1px solid color-mix(in srgb, var(--stop) 40%, transparent); }
+.banner.error { background: color-mix(in srgb, var(--warn) 14%, var(--surface)); color: var(--warn); border: 1px solid color-mix(in srgb, var(--warn) 40%, transparent); font-weight: 500; }
+
+main {
+  display: grid; gap: 16px;
+  grid-template-columns: minmax(0, 1fr);
+  padding: 16px;
+  max-width: 1180px; margin: 0 auto;
+}
+@media (min-width: 860px) {
+  main { grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); align-items: start; }
+}
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+}
+
+.view { padding: 12px 12px 14px; }
+.view svg { display: block; width: 100%; height: auto; }
+.view-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 18px; padding: 8px 6px 0; border-top: 1px solid var(--line); }
+.legend { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 22px; height: 0; border-top: 3px solid var(--real); display: inline-block; }
+.legend i.cmd { border-top: 2px dashed var(--cmd); }
+.ghostbtn {
+  margin-left: auto;
+  border: 1px solid var(--line); background: transparent; color: var(--ink);
+  border-radius: 9px; padding: 8px 12px; font: inherit; font-size: 14px; cursor: pointer;
+}
+.ghostbtn:disabled { opacity: 0.45; cursor: not-allowed; }
+.inset { flex: none; width: 116px; margin: 0; }
+.inset figcaption { font-size: 11px; color: var(--muted); text-align: center; line-height: 1.2; }
+
+.arm .link { fill: var(--real-fill); stroke: var(--real); stroke-width: 6; stroke-linejoin: round; }
+.arm .pivot { fill: var(--surface); stroke: var(--real); stroke-width: 6; }
+.arm.cmd .link, .arm.cmd .pivot { fill: none; stroke: var(--cmd); stroke-width: 7; stroke-dasharray: 18 12; }
+.arm.cmd { transition: opacity 0.2s; }
+.arm.hidden { opacity: 0; }
+.stale .arm.real { opacity: 0.35; }
+.pedestal { fill: var(--pedestal); }
+.ground { stroke: var(--ground); stroke-width: 4; }
+.hatch { stroke: var(--ground); stroke-width: 2; }
+.cap-side { font-size: 12px; color: var(--muted); padding: 0 4px; }
+
+.controls { padding: 6px 16px; }
+.joint { padding: 14px 0; border-top: 1px solid var(--line); }
+.joint:first-child { border-top: 0; }
+.jhead { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.jname { font-weight: 650; font-size: 16px; }
+.jvals { display: flex; flex-wrap: wrap; gap: 2px 14px; margin-left: auto; font-size: 13px; color: var(--muted); }
+.jvals > span { white-space: nowrap; }
+.jvals b { font-weight: 600; font-size: 15px; }
+.jvals .c b { color: var(--cmd); }
+.jvals .r b { color: var(--ink); }
+.jrow { display: flex; align-items: center; gap: 10px; }
+.step {
+  flex: none; width: 48px; height: 48px;
+  border-radius: 12px; border: 1px solid var(--line);
+  background: var(--bg); color: var(--ink);
+  font-size: 20px; line-height: 1; cursor: pointer;
+  touch-action: none; user-select: none; -webkit-user-select: none;
+}
+.step:active { background: var(--line); }
+.step:disabled, input[type=range]:disabled { opacity: 0.4; cursor: not-allowed; }
+.jrange { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-top: 2px; padding: 0 58px; }
+
+input[type=range] {
+  flex: 1; min-width: 0; height: 48px; margin: 0;
+  -webkit-appearance: none; appearance: none; background: transparent; cursor: pointer;
+}
+input[type=range]::-webkit-slider-runnable-track { height: 6px; border-radius: 3px; background: var(--line); }
+input[type=range]::-moz-range-track { height: 6px; border-radius: 3px; background: var(--line); }
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 26px; height: 26px; margin-top: -10px; border-radius: 50%;
+  background: var(--cmd); border: 3px solid var(--surface); box-shadow: 0 0 0 1px var(--cmd);
+}
+input[type=range]::-moz-range-thumb {
+  width: 22px; height: 22px; border-radius: 50%;
+  background: var(--cmd); border: 3px solid var(--surface); box-shadow: 0 0 0 1px var(--cmd);
+}
+
+footer { max-width: 1180px; margin: 0 auto; padding: 0 16px 24px; color: var(--muted); font-size: 12.5px; }
+footer code { font-size: 12px; }
+kbd { font: 12px ui-monospace, monospace; border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
+
+@media (max-width: 520px) {
+  .estop { min-width: 96px; }
+  .jvals { margin-left: 0; width: 100%; }
+  .view-foot { gap: 12px; }
+  .inset { width: 84px; }
+  .ghostbtn { padding: 8px 10px; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="titles">
+    <h1>Braço do mestrado</h1>
+    <div class="status" id="status" data-s="off"><span class="dot"></span><span id="statusText">conectando…</span></div>
+  </div>
+  <button class="estop" id="estop" data-mode="stop" title="Parada de emergência (tecla Esc)">PARAR</button>
+</header>
+
+<div class="banner stop" id="stopBanner" role="alert">Parada de emergência ativa. O controlador ignora comandos até você liberar.</div>
+<div class="banner error" id="errorBanner" role="alert"></div>
+
+<main>
+  <section class="card view" id="view" aria-label="Vista lateral do braço">
+    <div class="cap-side">vista lateral</div>
+    <svg id="side" viewBox="-720 -730 1440 1100" role="img" aria-label="Vista lateral: braço real e comando">
+      <g transform="scale(1 -1)">
+        <g id="scene"></g>
+      </g>
+    </svg>
+    <div class="view-foot">
+      <figure class="inset" aria-label="Garra vista de frente">
+        <svg id="front" viewBox="-150 -205 300 285"><g transform="scale(1 -1)" id="frontScene"></g></svg>
+        <figcaption>garra, de frente</figcaption>
+      </figure>
+      <div class="legend"><span><i></i>real</span><span><i class="cmd"></i>comando</span></div>
+      <button class="ghostbtn" id="home">Posição inicial</button>
+    </div>
+  </section>
+
+  <section class="card controls" id="controls" aria-label="Comandos"></section>
+</main>
+
+<footer>
+  <p>Comando: o alvo que o controlador está seguindo (<code>/arm/joint_targets</code>). Real: <code>/joint_states</code>.
+  <kbd>Esc</kbd> aciona a parada. Conectado em <code id="wsUrl"></code>.</p>
+</footer>
+
+<script>
+"use strict";
+
+// ---------------------------------------------------------------- rosbridge
+// The rosbridge v2 protocol is JSON over a websocket; this is all the page uses.
+class RosBridge {
+  constructor(url, onStatus) {
+    this.url = url;
+    this.onStatus = onStatus;
+    this.ads = new Map();      // topic -> type, re-sent after a reconnect
+    this.subs = new Map();     // topic -> {type, cb, throttle}
+    this.pending = new Map();  // call id -> resolve
+    this.seq = 0;
+    this.connect();
+  }
+  connect() {
+    this.onStatus("connecting");
+    const ws = (this.ws = new WebSocket(this.url));
+    ws.onopen = () => {
+      for (const [topic, type] of this.ads) this.send({ op: "advertise", topic, type });
+      for (const [topic, s] of this.subs) this.sendSubscribe(topic, s);
+      this.onStatus("open");
+    };
+    ws.onmessage = (ev) => {
+      const m = JSON.parse(ev.data);
+      if (m.op === "publish") this.subs.get(m.topic)?.cb(m.msg);
+      else if (m.op === "service_response") this.settle(m.id, m);
+      else if (m.op === "status") console.warn("rosbridge:", m.msg);
+    };
+    ws.onclose = () => {
+      for (const id of [...this.pending.keys()]) this.settle(id, { result: false, values: "conexão perdida" });
+      this.onStatus("closed");
+      setTimeout(() => this.connect(), 2000);
+    };
+  }
+  get open() { return this.ws?.readyState === WebSocket.OPEN; }
+  send(obj) {
+    if (!this.open) return false;
+    this.ws.send(JSON.stringify(obj));
+    return true;
+  }
+  sendSubscribe(topic, s) {
+    this.send({ op: "subscribe", id: "sub:" + topic, topic, type: s.type, throttle_rate: s.throttle, queue_length: 1 });
+  }
+  advertise(topic, type) { this.ads.set(topic, type); this.send({ op: "advertise", topic, type }); }
+  publish(topic, msg) { return this.send({ op: "publish", topic, msg }); }
+  subscribe(topic, type, cb, throttle = 0) {
+    const s = { type, cb, throttle };
+    this.subs.set(topic, s);
+    this.sendSubscribe(topic, s);
+  }
+  call(service, type, args, timeoutMs = 3000) {
+    return new Promise((resolve) => {
+      const id = "call:" + ++this.seq;
+      this.pending.set(id, resolve);
+      if (!this.send({ op: "call_service", id, service, type, args })) {
+        this.settle(id, { result: false, values: "sem conexão" });
+        return;
+      }
+      setTimeout(() => this.settle(id, { result: false, values: "sem resposta em " + timeoutMs / 1000 + " s" }), timeoutMs);
+    });
+  }
+  settle(id, m) {
+    const resolve = this.pending.get(id);
+    if (!resolve) return;
+    this.pending.delete(id);
+    resolve(m);
+  }
+}
+
+// ---------------------------------------------------------------- model
+const DEG = 180 / Math.PI;
+// Finger faces 140 mm apart at joint 0; each finger travels +-40 mm (SDF limits).
+const openingCm = (left, right) => 14 + (right - left) * 100;
+
+// UI ranges, not safety limits (those belong to the controller side). The SDF
+// allows +-180 deg on both: past +-90 the upper arm hits the pedestal, and near
+// +-180 the forearm folds onto the upper arm, which the model does not stop
+// (self_collide is off).
+const CONTROLS = [
+  { key: "shoulder", name: "Ombro", unit: "°", min: -90, max: 90, step: 5, digits: 1,
+    read: (j) => j.shoulder_joint * DEG,
+    send: (v) => [["/arm/shoulder/cmd_pos", v / DEG]] },
+  { key: "elbow", name: "Cotovelo", unit: "°", min: -150, max: 150, step: 5, digits: 1,
+    read: (j) => j.elbow_joint * DEG,
+    send: (v) => [["/arm/elbow/cmd_pos", v / DEG]] },
+  { key: "gripper", name: "Garra (abertura)", unit: " cm", min: 6, max: 22, step: 0.5, digits: 1,
+    read: (j) => openingCm(j.gripper_left_joint, j.gripper_right_joint),
+    // symmetric: each finger moves half of the change in opening
+    send: (v) => {
+      const half = (v - 14) / 200;
+      return [["/arm/gripper_left/cmd_pos", -half], ["/arm/gripper_right/cmd_pos", half]];
+    } },
+];
+const JOINT_NAMES = ["shoulder_joint", "elbow_joint", "gripper_left_joint", "gripper_right_joint"];
+
+const state = {
+  actual: null,        // {joint: position} from /joint_states
+  target: null,        // {joint: position} from /arm/joint_targets
+  actualAt: 0,
+  controllerAt: 0,     // last /arm/estop_active (the controller republishes it at 1 Hz)
+  stopped: false,
+  link: "connecting",
+};
+
+// ---------------------------------------------------------------- drawing
+const NS = "http://www.w3.org/2000/svg";
+function el(name, attrs = {}, parent) {
+  const e = document.createElementNS(NS, name);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+const rect = (x, y, w, h, p) => el("rect", { x, y, width: w, height: h, rx: 4, class: "link" }, p);
+const ball = (cy, r, p, cls = "link") => el("circle", { cx: 0, cy, r, class: cls }, p);
+
+// Side view, mm, y-up, origin at the shoulder pivot (model.sdf).
+function sideArm(cls, parent) {
+  const root = el("g", { class: "arm " + cls }, parent);
+  const shoulder = el("g", {}, root);
+  rect(-15, 15, 30, 220, shoulder);                // upper_arm_link, cylinder r15 L220
+  const elbow = el("g", {}, shoulder);
+  rect(-15, 15, 30, 220, elbow);                   // forearm_link
+  rect(-15, 235, 30, 30, elbow);                   // gripper_base_link (30 mm deep in this view)
+  ball(250, 30, elbow);                            // finger bases, r30 (both at the same y)
+  rect(-15, 280, 30, 150, elbow);                  // fingers, 150 mm
+  ball(0, 15, elbow, "pivot");                     // elbow_link, 250 mm above the shoulder
+  ball(0, 15, shoulder, "pivot");                  // shoulder_link
+  return { root, shoulder, elbow };
+}
+function poseSide(g, j) {
+  // rotation about +x seen from +x (y to the right) is counter-clockwise, as rotate() in a y-up frame
+  g.shoulder.setAttribute("transform", `rotate(${j.shoulder_joint * DEG})`);
+  g.elbow.setAttribute("transform", `translate(0 250) rotate(${j.elbow_joint * DEG})`);
+}
+
+// Front view of the gripper, mm, y-up, origin at the gripper base centre.
+function frontGripper(cls, parent) {
+  const root = el("g", { class: "arm " + cls }, parent);
+  rect(-15, -60, 30, 45, root);                    // end of the forearm
+  rect(-55, -15, 110, 30, root);                   // gripper_base_link 110 x 30
+  const fingers = [-85, 85].map((x0) => {
+    const f = el("g", {}, root);
+    ball(0, 30, f);                                // finger_*_base_link at x = -+85
+    rect(-15, 30, 30, 150, f);                     // finger_*_link
+    return { f, x0 };
+  });
+  return { root, fingers };
+}
+function poseFront(g, j) {
+  const q = [j.gripper_left_joint, j.gripper_right_joint];
+  g.fingers.forEach(({ f, x0 }, i) => f.setAttribute("transform", `translate(${x0 + q[i] * 1000} 0)`));
+}
+
+const scene = document.getElementById("scene");
+el("line", { x1: -720, y1: -316, x2: 720, y2: -316, class: "ground" }, scene);
+for (let x = -700; x <= 700; x += 40) el("line", { x1: x, y1: -316, x2: x - 22, y2: -338, class: "hatch" }, scene);
+el("rect", { x: -60, y: -316, width: 120, height: 300, class: "pedestal" }, scene);  // pedestal 0.12 x 0.3 m
+const sideReal = sideArm("real", scene);
+const sideCmd = sideArm("cmd hidden", scene);
+const frontScene = document.getElementById("frontScene");
+const frontReal = frontGripper("real", frontScene);
+const frontCmd = frontGripper("cmd hidden", frontScene);
+
+// ---------------------------------------------------------------- controls
+const fmt = (v, d) =>
+  (Math.abs(v) < 0.5 * 10 ** -d ? 0 : v)  // no "-0,0"
+    .toLocaleString("pt-BR", { minimumFractionDigits: d, maximumFractionDigits: d });
+const clamp = (v, c) => Math.min(c.max, Math.max(c.min, v));
+const controlsEl = document.getElementById("controls");
+const ui = {};
+
+for (const c of CONTROLS) {
+  const wrap = document.createElement("div");
+  wrap.className = "joint";
+  wrap.innerHTML = `
+    <div class="jhead">
+      <span class="jname">${c.name}</span>
+      <span class="jvals">
+        <span class="c">comando <b data-v="cmd">—</b></span>
+        <span class="r">real <b data-v="real">—</b></span>
+        <span class="e">diferença <b data-v="err">—</b></span>
+      </span>
+    </div>
+    <div class="jrow">
+      <button class="step" data-d="-1" aria-label="${c.name}: diminuir">◀</button>
+      <input type="range" min="${c.min}" max="${c.max}" step="${c.step / 5}" value="${c.key === "gripper" ? 14 : 0}" aria-label="${c.name}">
+      <button class="step" data-d="1" aria-label="${c.name}: aumentar">▶</button>
+    </div>
+    <div class="jrange"><span>${fmt(c.min, 0)}${c.unit}</span><span>${fmt(c.max, 0)}${c.unit}</span></div>`;
+  controlsEl.appendChild(wrap);
+  const u = (ui[c.key] = {
+    c,
+    slider: wrap.querySelector("input"),
+    buttons: [...wrap.querySelectorAll(".step")],
+    out: Object.fromEntries([...wrap.querySelectorAll("[data-v]")].map((b) => [b.dataset.v, b])),
+    touchedAt: 0,          // while the user moves it, the slider is not overwritten by the controller target
+    timer: null, lastSent: 0,
+  });
+  u.slider.addEventListener("input", () => { u.touchedAt = performance.now(); queueSend(u); });
+  u.slider.addEventListener("change", () => { u.touchedAt = performance.now(); queueSend(u, true); });
+  for (const b of u.buttons) holdRepeat(b, () => nudge(u, Number(b.dataset.d)));
+}
+
+function nudge(u, dir) {
+  const v = clamp(Number(u.slider.value) + dir * u.c.step, u.c);
+  u.slider.value = v;
+  u.touchedAt = performance.now();
+  queueSend(u, true);
+}
+
+// At most one command every 50 ms per control while dragging; the last value always goes out.
+function queueSend(u, now = false) {
+  const wait = 50 - (performance.now() - u.lastSent);
+  clearTimeout(u.timer);
+  if (now || wait <= 0) sendControl(u);
+  else u.timer = setTimeout(() => sendControl(u), wait);
+}
+function sendControl(u) {
+  if (state.stopped) return;
+  u.lastSent = performance.now();
+  for (const [topic, value] of u.c.send(Number(u.slider.value))) ros.publish(topic, { data: value });
+}
+
+// Press once for one step; hold to repeat.
+function holdRepeat(btn, fn) {
+  let timer = null;
+  const stop = () => { clearTimeout(timer); clearInterval(timer); timer = null; };
+  btn.addEventListener("pointerdown", (e) => {
+    if (btn.disabled || e.button !== 0) return;
+    e.preventDefault();
+    btn.setPointerCapture(e.pointerId);
+    fn();
+    timer = setTimeout(() => (timer = setInterval(fn, 90)), 380);
+  });
+  for (const ev of ["pointerup", "pointercancel", "lostpointercapture"]) btn.addEventListener(ev, stop);
+  btn.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fn(); }
+  });
+}
+
+document.getElementById("home").addEventListener("click", () => {
+  for (const u of Object.values(ui)) {
+    u.slider.value = u.c.key === "gripper" ? 14 : 0;
+    u.touchedAt = performance.now();
+    queueSend(u, true);
+  }
+});
+
+// ---------------------------------------------------------------- emergency stop
+const estopBtn = document.getElementById("estop");
+const errorBanner = document.getElementById("errorBanner");
+function showError(text) {
+  errorBanner.textContent = text;
+  errorBanner.classList.toggle("show", Boolean(text));
+}
+async function setStop(on) {
+  if (on) for (const u of Object.values(ui)) clearTimeout(u.timer);  // nothing queued goes out after the stop
+  estopBtn.disabled = true;
+  const r = await ros.call("/arm/estop", "std_srvs/srv/SetBool", { data: on });
+  estopBtn.disabled = false;
+  if (r.result && r.values?.success) {
+    showError("");
+    applyStop(on);
+  } else {
+    const why = typeof r.values === "string" ? r.values : JSON.stringify(r.values);
+    showError(on
+      ? `A parada NÃO foi confirmada pelo controlador (${why}). Se o braço é físico, desligue a alimentação.`
+      : `Não foi possível liberar (${why}).`);
+  }
+}
+estopBtn.addEventListener("click", () => setStop(estopBtn.dataset.mode === "stop"));
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && !state.stopped) setStop(true);
+});
+
+function applyStop(on) {
+  state.stopped = on;
+  estopBtn.dataset.mode = on ? "release" : "stop";
+  estopBtn.textContent = on ? "Liberar" : "PARAR";
+  estopBtn.title = on ? "Liberar: o braço fica onde está" : "Parada de emergência (tecla Esc)";
+  document.getElementById("stopBanner").classList.toggle("show", on);
+  refreshEnabled();
+}
+
+// ---------------------------------------------------------------- status
+const statusEl = document.getElementById("status");
+const statusText = document.getElementById("statusText");
+function refreshEnabled() {
+  const live = state.link === "open" && state.actual && performance.now() - state.actualAt < 1500;
+  const can = Boolean(live) && !state.stopped;
+  for (const u of Object.values(ui)) {
+    u.slider.disabled = !can;
+    u.buttons.forEach((b) => (b.disabled = !can));
+  }
+  document.getElementById("home").disabled = !can;
+}
+function refreshStatus() {
+  const now = performance.now();
+  let s = "ok", text;
+  if (state.link !== "open") {
+    s = "off";
+    text = state.link === "connecting" ? "conectando…" : "sem conexão com o rosbridge; tentando de novo";
+  } else if (!state.actual || now - state.actualAt > 1500) {
+    s = "warn";
+    text = "conectado, mas sem /joint_states: o braço está rodando?";
+  } else if (now - state.controllerAt > 2500) {
+    s = "warn";
+    text = "sem o arm_controller: comandos e parada não têm efeito";
+  } else {
+    text = "conectado";
+  }
+  statusEl.dataset.s = s;
+  statusText.textContent = text;
+  document.getElementById("view").classList.toggle("stale", s !== "ok" && Boolean(state.actual));
+  refreshEnabled();
+}
+setInterval(refreshStatus, 500);
+
+// ---------------------------------------------------------------- data in
+const toMap = (msg) => {
+  const m = {};
+  msg.name.forEach((n, i) => (m[n] = msg.position[i]));
+  return JOINT_NAMES.every((n) => n in m) ? m : null;
+};
+
+let frame = 0;
+function render() {
+  frame = 0;
+  const now = performance.now();
+  if (state.actual) {
+    poseSide(sideReal, state.actual);
+    poseFront(frontReal, state.actual);
+  }
+  if (state.target) {
+    poseSide(sideCmd, state.target);
+    poseFront(frontCmd, state.target);
+  }
+  for (const el of [sideCmd.root, frontCmd.root]) el.classList.toggle("hidden", !state.target);
+  for (const u of Object.values(ui)) {
+    const c = u.c;
+    const real = state.actual ? c.read(state.actual) : null;
+    const cmd = state.target ? c.read(state.target) : null;
+    u.out.real.textContent = real == null ? "—" : fmt(real, c.digits) + c.unit;
+    u.out.cmd.textContent = cmd == null ? "—" : fmt(cmd, c.digits) + c.unit;
+    u.out.err.textContent = real == null || cmd == null ? "—" : fmt(Math.abs(cmd - real), c.digits) + c.unit;
+    // the slider shows what the controller is tracking, except while the user is moving it
+    if (cmd != null && now - u.touchedAt > 600) u.slider.value = clamp(cmd, c);
+    u.slider.setAttribute("aria-valuetext", fmt(Number(u.slider.value), c.digits) + c.unit);
+  }
+}
+const scheduleRender = () => { if (!frame) frame = requestAnimationFrame(render); };
+
+// ---------------------------------------------------------------- wiring
+const wsUrl = new URLSearchParams(location.search).get("ws") || `ws://${location.hostname || "localhost"}:9090`;
+document.getElementById("wsUrl").textContent = wsUrl;
+
+const ros = new RosBridge(wsUrl, (link) => {
+  state.link = link;
+  refreshStatus();
+});
+for (const c of CONTROLS) for (const [topic] of c.send(0)) ros.advertise(topic, "std_msgs/msg/Float64");
+ros.subscribe("/joint_states", "sensor_msgs/msg/JointState", (msg) => {
+  const m = toMap(msg);
+  if (!m) return;
+  state.actual = m;
+  state.actualAt = performance.now();
+  scheduleRender();
+}, 50);
+ros.subscribe("/arm/joint_targets", "sensor_msgs/msg/JointState", (msg) => {
+  const m = toMap(msg);
+  if (!m) return;
+  state.target = m;
+  scheduleRender();
+}, 50);
+ros.subscribe("/arm/estop_active", "std_msgs/msg/Bool", (msg) => {
+  state.controllerAt = performance.now();
+  if (msg.data !== state.stopped) applyStop(msg.data);
+});
+refreshStatus();
+</script>
+</body>
+</html>

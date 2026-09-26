@@ -65,6 +65,29 @@ services:
       camera:=${CAMERA:-0} flip:=${FLIP:-true} arm:=${ARM:-right}
       gui:=${GUI:-true} show_window:=${SHOW_WINDOW:-true}
 
+  # The arm alone (Gazebo + controller + bridge), nothing commanding it: for
+  # the browser interface or `ros2 topic pub`. Headless unless GUI=true.
+  braco:
+    <<: *ros
+    command: ros2 launch mestrado_bringup sim.launch.py gui:=${GUI:-false}
+
+  # Browser interface: rosbridge on :9090 and the page (../web) on :8080.
+  # With the arm: `up braco web`, then open http://localhost:8080.
+  # On Docker Desktop (Windows/macOS) add compose.desktop.yaml: host networking
+  # there is not reachable from the host.
+  web:
+    <<: *ros
+    command: ros2 launch mestrado_bringup web.launch.py http_port:=8080 ws_port:=9090
+    volumes:
+      - ../web:/web:ro
+
+  # Docker Desktop only: defined and switched on by compose.desktop.yaml.
+  # Declared here, off, so that the other commands do not report it as an
+  # orphan container (and suggest --remove-orphans) while it runs.
+  web-portas:
+    image: mestrado-ros:lyrical
+    profiles: [desktop]
+
   # Interactive shell with the workspace sourced.
   shell:
     <<: *ros
