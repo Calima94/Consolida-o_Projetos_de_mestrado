@@ -136,3 +136,15 @@ contínuo.
 parada; o nó sai entre dois callbacks. Um `KeyboardInterrupt` no meio de um
 callback chegou a interromper a liberação de memória do MediaPipe, e poderia
 cortar a desconexão do Myo ou a escrita do CSV.
+
+**D17. As telas PyQt viraram um menu de terminal e figuras em arquivo.** As
+três janelas do mestrado (captura, treino/resultados e lançador do Gazebo)
+estão no `scripts/menu.sh`, que pergunta os campos, mostra o comando do
+`docker compose` e o executa. A aba "Results" virou o `analyze_legacy`, que
+grava PNGs (acurácia, matrizes de confusão, ROC, sinal bruto, features) e um
+resumo, em vez de desenhar numa janela: funciona no Docker sem depender de
+janela e o resultado fica guardado. Usa o `matplotlib` que já vinha na imagem.
+Acrescenta o que a tela não tinha: validação cruzada temporal e embaralhada,
+ROC com escore contínuo, conferência da taxa de amostragem e a referência
+`amplitude`. *Rever se* for preciso editar parâmetros do pipeline com
+frequência, caso em que uma interface gráfica voltaria a compensar.

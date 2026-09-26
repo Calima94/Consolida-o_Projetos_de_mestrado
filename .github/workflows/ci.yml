@@ -15,7 +15,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install dependencies
-        run: pip install numpy scipy scikit-learn PyWavelets pandas joblib pyyaml pytest ruff==0.15.8
+        run: pip install numpy scipy scikit-learn PyWavelets pandas joblib pyyaml matplotlib pytest ruff==0.15.8
       - name: Fetch thesis data (pinned commit, SHA-256 checked)
         run: ./scripts/fetch_legacy_data.sh
       - name: Ruff
@@ -45,6 +45,10 @@ jobs:
         run: >
           docker run --rm -v "$PWD:/repo:ro" -w /repo -e PYTHONDONTWRITEBYTECODE=1
           mestrado-ros:lyrical python3 -m pytest -q -p no:cacheprovider
+      - name: Results analysis through the installed entry point
+        run: >
+          docker run --rm -v "$PWD/data:/data" mestrado-ros:lyrical
+          ros2 run mestrado_emg analyze_legacy /data/6_10_20220.csv --out /tmp/analise
       - name: End-to-end (replay -> classifier -> Gazebo) + clean shutdown
         run: >
           docker run --rm --init -v "$PWD/data:/data" -v "$PWD/scripts:/scripts"

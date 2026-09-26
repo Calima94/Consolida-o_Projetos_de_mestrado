@@ -30,6 +30,8 @@ sEMG (Myo, ou CSV gravado) ──► /emg/raw ──► emg_classifier ──►
 | Ferramenta de captura (`Capture_EMG_Data`) | ✅ Portada; ensaio completo sem hardware (vídeo do mestrado + sEMG reproduzido) no CI |
 | Ângulo do cotovelo com MediaPipe 1.x | ✅ No vídeo do mestrado, diferença ≤ 3° em relação ao que a ferramenta original mediu |
 | Modo espelho (o braço do Gazebo copia o seu, via câmera) | ✅ Novo; testado com o vídeo do mestrado |
+| Menu (`scripts/menu.sh`) no lugar das telas PyQt | ✅ Captura, treino, análise e braço num menu de terminal |
+| Análise dos resultados (a aba "Results" da tela de treino) | ✅ Figuras em PNG, validação cruzada e referência `amplitude`; conclusões em [`docs/ANALISE_RESULTADOS.md`](docs/ANALISE_RESULTADOS.md) |
 | Encerrar com Ctrl+C / `docker compose stop` / `scripts/stop.sh` | ✅ Sem processos sobrando (medido) |
 | Driver do Myo | ⚠️ Portado e com testes do protocolo, **mas nunca rodou com um Myo de verdade** |
 | Janelas (Gazebo e câmera) | ✅ Windows 11 + WSL2 + Docker Desktop: janela do Gazebo abre e o braço se move (renderização por software). ⚠️ Linux com monitor e a janela da câmera só testados em display virtual (Xvfb); webcam não testada |
@@ -50,10 +52,22 @@ original estão em [`docs/INVENTARIO_MESTRADO.md`](docs/INVENTARIO_MESTRADO.md).
 A partir da raiz do repositório. O passo a passo completo, com instalação e
 solução de problemas, está em [`docs/COMO_RODAR.md`](docs/COMO_RODAR.md).
 
+O jeito mais simples é o menu, que faz o papel das telas do mestrado (captura,
+treino e resultados, lançador do braço). Cada opção pergunta os campos, mostra
+o comando e o executa:
+
+```bash
+scripts/menu.sh
+```
+
+Os mesmos passos, direto no terminal:
+
 ```bash
 ./scripts/fetch_legacy_data.sh                            # dados do mestrado -> ./data
 docker compose -f docker/compose.yaml build               # imagem ROS 2 + Gazebo
 docker compose -f docker/compose.yaml run --rm train      # 5 classificadores -> ./models
+docker compose -f docker/compose.yaml run --rm train \
+  ros2 run mestrado_emg analyze_legacy /data/6_10_20220.csv --out /models/analise  # figuras
 
 # sistema do mestrado: sEMG gravado -> kNN -> braço (sem janela)
 docker compose -f docker/compose.yaml up sim
@@ -77,7 +91,7 @@ janelas, sem processos sobrando. No mestrado era preciso
 
 | Serviço | O que faz | Variáveis principais |
 |---|---|---|
-| `train` | Treina os 5 classificadores a partir do CSV | — |
+| `train` | Treina os 5 classificadores a partir do CSV (e roda o `analyze_legacy`) | — |
 | `sim` | Gazebo + fonte de sEMG + classificador + controlador | `SOURCE` (`replay`/`myo`), `CSV`, `MODEL`, `GUI` |
 | `espelho` | Gazebo + câmera: o braço copia o cotovelo visto | `CAMERA`, `FLIP`, `ARM`, `GUI` |
 | `captura` | Ferramenta de captura: câmera + sEMG rotulado por categoria | `EMG`, `CAMERA`, `N_CATEGORIES`, `TOLERANCE`, `SAMPLES`, `CONTINUOUS` |
@@ -117,7 +131,7 @@ um nó driver; classificador e simulador não mudam.
 ## Testes e CI
 
 ```bash
-pip install numpy scipy scikit-learn PyWavelets pandas joblib pyyaml pytest ruff
+pip install numpy scipy scikit-learn PyWavelets pandas joblib pyyaml matplotlib pytest ruff
 ./scripts/fetch_legacy_data.sh
 ruff check . && ruff format --check .
 pytest
@@ -130,6 +144,8 @@ Os testes cobrem:
 - reprodução da matriz de treino e dos scores históricos;
 - o ângulo do MediaPipe contra o que a ferramenta original imprimiu no vídeo;
 - a lei de controle e a resposta de 1ª ordem;
+- a análise (partições da validação cruzada, conferência da taxa, figuras e os
+  números citados em `docs/ANALISE_RESULTADOS.md`) e os comandos que o menu monta;
 - o protocolo do Myo sem hardware;
 - a consistência entre o SDF, a ponte ROS↔Gazebo, o controlador e o compose;
 - o encerramento do grupo de processos do Gazebo.
@@ -150,6 +166,9 @@ exatamente o `scores_of_classifiers.csv` do mestrado. Outras configurações
 estão no [inventário](docs/INVENTARIO_MESTRADO.md#resultados-reproduzidos).
 São 60 janelas de um único sujeito e 16 a 18 janelas de teste: os números
 servem para conferir que o porte está fiel, **não como resultado científico**.
+A [análise](docs/ANALISE_RESULTADOS.md) mostra por quê: uma regra de um número
+só (a amplitude média dos canais) acerta tanto quanto os cinco classificadores,
+e cada categoria é um único bloco de tempo da gravação.
 
 ## Estrutura
 
@@ -160,9 +179,9 @@ ros2_ws/src/
   mestrado_capture/         ângulo do cotovelo (MediaPipe) e gravação rotulada
   mestrado_description/     modelo SDF do braço + mundo (Gazebo Jetty)
   mestrado_bringup/         launch files (sim, mestrado, captura, espelho), ponte, gz_sim_group
-scripts/                    dados, stop.sh, testes de ponta a ponta
+scripts/                    menu.sh, dados, check_docker.sh, stop.sh, testes de ponta a ponta
 tests/                      pytest (+ legacy_reference: cópias literais do código original)
-docs/                       como rodar, inventário do mestrado e decisões do porte
+docs/                       como rodar, inventário do mestrado, decisões do porte e análise dos resultados
 data/, models/              fora do git (baixados / gerados)
 ```
 
@@ -171,16 +190,17 @@ data/, models/              fora do git (baixados / gerados)
 | Mestrado | Aqui |
 |---|---|
 | `Train_Myo_Signals/mod_sig_emg.py`, `train_signals_emg.py` | `mestrado_emg/features.py`, `training.py` |
+| `Train_Myo_Signals/main.py` (tela PyQt: treino e aba "Results") | `training.py` + `analysis.py` (`analyze_legacy`) + `scripts/menu.sh`, opções 4 e 5 |
 | `my_arm_def/.../capture_simple_sample.py`, `mod_sig_emg.py` | `mestrado_emg/features.py` |
 | `MyoRaw`/`BT` (nos três repositórios) | `mestrado_emg/myo_protocol.py` |
 | `my_arm_def/.../capture_braco_pos.py` + `myo_raw.py` | `nodes/myo_driver.py` + `nodes/emg_classifier.py` |
 | `my_arm_def/.../arm_controller.py` + plugin `arm_control.cpp` | `nodes/arm_controller.py` + `JointController` no `model.sdf` |
 | `my_arm_def/.../show_angles.py` (painel PyQt) | `nodes/angle_monitor.py` |
 | `braco_antebraco_garra.sdf`, `braco_com_mesa.world` | `mestrado_description/` |
-| `my_arm_definitive.launch.py` + `main.py` (launcher PyQt) | `mestrado_bringup/launch/` + `docker/compose.yaml` |
+| `my_arm_definitive.launch.py` + `main.py` (launcher PyQt) | `mestrado_bringup/launch/` + `docker/compose.yaml` + `scripts/menu.sh`, opções 6 e 7 |
 | Botão "Stop" (`stop_myo_and_gazebo`) | `scripts/stop.sh` + `gz_sim_group` |
 | `Capture_EMG_Data/pose_module.py` | `mestrado_capture/pose.py` (MediaPipe Tasks) + `categories.py` |
-| `Capture_EMG_Data/capture_myo_*.py` (janela PyQt + gravação) | `nodes/elbow_angle_camera.py` + `nodes/emg_recorder.py` + `captura.launch.py` |
+| `Capture_EMG_Data/capture_myo_*.py` (janela PyQt + gravação) | `nodes/elbow_angle_camera.py` + `nodes/emg_recorder.py` + `captura.launch.py` + `scripts/menu.sh`, opção 9 |
 
 ## Problemas conhecidos
 
