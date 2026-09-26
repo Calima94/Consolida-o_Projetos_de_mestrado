@@ -24,8 +24,10 @@
 # is usually NOT the fix. The two real causes seen on Windows 11:
 #   A) Docker Desktop is not running (e.g. after a reboot with "Start Docker
 #      Desktop when you sign in" off);
-#   B) the default WSL distro is "docker-desktop", so the integration with the
-#      *default* distro never reaches Ubuntu.
+#   B) the default WSL distro is not this one (usually "docker-desktop"), so
+#      the integration with the *default* distro never reaches Ubuntu.
+# When tasklist.exe / wsl.exe answer, the script says which cause is likely and
+# which is ruled out; when they do not ("?"), it prints both.
 set -u
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
@@ -57,28 +59,88 @@ default_wsl_distro() {
   [ -n "$line" ] && echo "$line" | tr -s ' ' | cut -d' ' -f2 || echo "?"
 }
 
-print_causes() {
-  local running default
-  running="$(docker_desktop_running)"
-  default="$(default_wsl_distro)"
+cause_a() {
   cat <<EOF
-
-  Não mexa primeiro no "WSL integration" das configurações: costuma não ser isso.
-  Diagnóstico (lado Windows): Docker Desktop rodando = ${running}; distro padrão do WSL = ${default}
-
   Causa A (a mais comum): o Docker Desktop não está rodando.
     Conserto: abra o Docker Desktop no Windows e espere o motor subir (~10 s),
     depois rode este script de novo. Se o "Start Docker Desktop when you sign in"
     estiver desligado, isso se repete a cada reinicialização do Windows.
+EOF
+}
 
-  Causa B: a distro padrão do WSL é a "docker-desktop" (a VM do próprio Docker),
-    e a integração com a distro padrão nunca chega ao Ubuntu. Acontece quando o
-    Docker Desktop foi instalado antes do Ubuntu. Confira no PowerShell:
+cause_b() {
+  cat <<EOF
+  Causa B: a distro padrão do WSL não é esta (${here:-Ubuntu}); costuma ser a
+    "docker-desktop" (a VM do próprio Docker), quando o Docker Desktop foi
+    instalado antes do Ubuntu. A integração com a distro padrão nunca chega aqui.
+    Confira no PowerShell:
       wsl --list --verbose        (o asterisco marca a distro padrão)
     Conserto, no PowerShell:
-      wsl --set-default Ubuntu
+      wsl --set-default ${here:-Ubuntu}
     e reinicie o Docker Desktop.
 EOF
+}
+
+# The Windows-side diagnosis decides which cause to show: "provável" (shown in
+# full), "descartada" (one line) or unknown "?" (shown in full, as before).
+print_causes() {
+  local running default here a b
+  running="$(docker_desktop_running)"
+  default="$(default_wsl_distro)"
+  here="${WSL_DISTRO_NAME:-}"
+
+  case "$running" in
+    não) a=provável ;;
+    sim) a=descartada ;;
+    *) a="?" ;;
+  esac
+  if [ "$default" = "?" ]; then
+    b="?"
+  elif [ -n "$here" ] && [ "$default" != "$here" ]; then
+    b=provável
+  elif [ -z "$here" ] && [[ "$default" == docker-desktop* ]]; then
+    b=provável
+  else
+    b=descartada
+  fi
+
+  echo
+  echo "  Diagnóstico (lado Windows): Docker Desktop rodando = ${running}; distro padrão do WSL = ${default}"
+
+  if [ "$a" = descartada ] && [ "$b" = descartada ]; then
+    cat <<EOF
+
+  Nem a causa A nem a B: o Docker Desktop está rodando e a distro padrão já é
+  esta. Se o Docker Desktop acabou de abrir, espere ~10 s e rode de novo. Se
+  continuar, aqui sim confira no Docker Desktop: Settings > Resources >
+  WSL integration, ligue a chave da distro ${here:-Ubuntu} e clique em
+  "Apply & restart".
+EOF
+    return
+  fi
+
+  echo "  Não mexa primeiro no \"WSL integration\" das configurações: costuma não ser isso."
+  local cause state
+  for cause in A B; do
+    if [ "$cause" = A ]; then state="$a"; else state="$b"; fi
+    echo
+    case "$state" in
+      provável)
+        echo "  >> Causa provável: $cause"
+        if [ "$cause" = A ]; then cause_a; else cause_b; fi
+        ;;
+      descartada)
+        if [ "$cause" = A ]; then
+          echo "  Causa A descartada: o Docker Desktop está rodando."
+        else
+          echo "  Causa B descartada: a distro padrão do WSL já é ${default}."
+        fi
+        ;;
+      *)
+        if [ "$cause" = A ]; then cause_a; else cause_b; fi
+        ;;
+    esac
+  done
 }
 
 echo "Verificando o Docker para este projeto..."
