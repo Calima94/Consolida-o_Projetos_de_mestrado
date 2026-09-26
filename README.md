@@ -31,6 +31,7 @@ sEMG (Myo, ou CSV gravado) ──► /emg/raw ──► emg_classifier ──►
 | Ângulo do cotovelo com MediaPipe 1.x | ✅ No vídeo do mestrado, diferença ≤ 3° em relação ao que a ferramenta original mediu |
 | Modo espelho (o braço do Gazebo copia o seu, via câmera) | ✅ Novo; testado com o vídeo do mestrado |
 | Menu (`scripts/menu.sh`) no lugar das telas PyQt | ✅ Captura, treino, análise e braço num menu de terminal |
+| Painel (`scripts/painel.py`): os comandos como botões no navegador | ✅ Todas as ações do menu, mais testes e "parar tudo"; uma simulação por vez; saída ao vivo. Testado no Windows 11 + WSL2 + Docker Desktop |
 | Interface web: o braço pelo navegador (`web/`) | ✅ Setas e deslizadores, vista lateral 2D, comando × real, parada de emergência no controlador. Testada no Windows 11 + WSL2 + Docker Desktop contra o Gazebo sem janela. ⚠️ Linux e celular ainda não testados |
 | Análise dos resultados (a aba "Results" da tela de treino) | ✅ Figuras em PNG, validação cruzada e referência `amplitude`; conclusões em [`docs/ANALISE_RESULTADOS.md`](docs/ANALISE_RESULTADOS.md) |
 | Encerrar com Ctrl+C / `docker compose stop` / `scripts/stop.sh` | ✅ Sem processos sobrando (medido) |
@@ -54,9 +55,17 @@ original estão em [`docs/INVENTARIO_MESTRADO.md`](docs/INVENTARIO_MESTRADO.md).
 A partir da raiz do repositório. O passo a passo completo, com instalação e
 solução de problemas, está em [`docs/COMO_RODAR.md`](docs/COMO_RODAR.md).
 
-O jeito mais simples é o menu, que faz o papel das telas do mestrado (captura,
-treino e resultados, lançador do braço). Cada opção pergunta os campos, mostra
-o comando e o executa:
+O jeito mais simples é o **painel**: uma página com um botão para cada coisa
+(braço, sistema completo, espelho, captura, treino, análise, testes, parar
+tudo), com as opções do menu e a saída de cada comando ao vivo. Roda no host,
+fora do Docker, só com a biblioteca padrão do Python:
+
+```bash
+python3 scripts/painel.py --abrir      # http://localhost:8000
+```
+
+O menu de terminal faz o mesmo, pergunta por pergunta. Cada opção pergunta os
+campos, mostra o comando e o executa:
 
 ```bash
 scripts/menu.sh
@@ -206,7 +215,7 @@ ros2_ws/src/
   mestrado_description/     modelo SDF do braço + mundo (Gazebo Jetty)
   mestrado_bringup/         launch files (sim, mestrado, captura, espelho, web), ponte, gz_sim_group
 web/                        interface web: uma página, sem dependências nem etapa de build
-scripts/                    menu.sh, dados, check_docker.sh, stop.sh, testes de ponta a ponta
+scripts/                    painel.py (+ painel.html), menu.sh, dados, check_docker.sh, stop.sh, ci_local.sh, testes de ponta a ponta
 tests/                      pytest (+ legacy_reference: cópias literais do código original)
 docs/                       como rodar, inventário do mestrado, decisões do porte e análise dos resultados
 data/, models/              fora do git (baixados / gerados)

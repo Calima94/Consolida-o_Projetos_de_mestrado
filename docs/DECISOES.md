@@ -214,3 +214,32 @@ Gazebo: parado a caminho de 90°, o cotovelo ficou em 70,36° sem deriva em 5 s;
 um `cmd_pos` enviado do terminal durante a parada foi ignorado. *Rever se*
 houver braço físico: aí falta o watchdog de conexão, para o controlador parar
 sozinho quando a página ficar muda.
+
+**D22. Painel no navegador, rodando no host, para os comandos do projeto.**
+`scripts/painel.py` serve `scripts/painel.html` em `http://localhost:8000`: um
+cartão por ação do menu, com as opções recolhidas e os mesmos padrões, mais
+testes e "parar tudo". Roda no host (o Ubuntu do WSL, ou o Linux) e não no
+Docker, porque é ele que sobe e para os containers; usa só a biblioteca padrão
+do Python, então não há nada a instalar. Não substitui as guias de
+`VISAO_E_ARQUITETURA.md`, que falam com o ROS pelo `rosbridge`: o painel liga e
+desliga o sistema, as guias o operam. Escolhas:
+
+- **Lista fechada de ações:** cada botão monta um comando conhecido e cada
+  parâmetro é conferido contra os arquivos que existem e os valores do menu.
+  Não há como pedir um comando qualquer. Os testes comparam os comandos de
+  treino e análise com os que o menu imprime.
+- **Simulações destacadas (`up -d`):** fechar o painel não derruba o braço; os
+  registros são acompanhados com `logs -f`. Tarefas com fim (captura, treino,
+  testes) pertencem ao painel e param com ele (SIGINT, como Ctrl+C: a captura
+  salva o que gravou). Medido: com o braço rodando, Ctrl+C no painel parou o
+  acompanhamento e deixou o braço de pé; fechar a janela do `.bat` encerrou o
+  painel sem deixar processo.
+- **Uma simulação ou captura por vez**, conferido no servidor pelos containers
+  que estão rodando, e não só na página.
+- **Só `127.0.0.1`.** Todo POST exige o cabeçalho `X-Painel`, que uma página de
+  outra origem não consegue mandar sem um preflight de CORS, que o servidor
+  nunca aprova. O cabeçalho `Host` tem de ser `localhost`, o que barra DNS
+  rebinding.
+
+*Rever se* o painel precisar ficar acessível pela rede (por exemplo, no Pi): aí
+ele precisa de autenticação, como o `rosbridge`.

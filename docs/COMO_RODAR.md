@@ -135,8 +135,24 @@ Arquivo de janela para o Linux: `docker/compose.gui.yaml`.
 
 ## Rodando
 
-**Atalho: o menu.** Depois do passo 1, `scripts/menu.sh` faz os passos 2 a 9
-por você, no lugar das telas do mestrado; só a interface web (passo 5) ainda
+**Atalho: o painel.** Depois do passo 1, o painel faz os passos 2 a 9 com
+botões no navegador, inclusive a interface web do passo 5, os testes e "parar
+tudo". Cada botão usa os padrões abaixo; as opções ficam em "Opções", no
+próprio cartão. Ao lado, a coluna "Saída" mostra o comando que rodou e o que ele
+imprimiu. Roda no terminal do Ubuntu, fora do Docker:
+
+```bash
+python3 scripts/painel.py --abrir
+```
+
+Ele abre `http://localhost:8000` no navegador. Deixe o terminal aberto
+enquanto usa o painel; fechá-lo (ou Ctrl+C) encerra o painel. O braço, o
+sistema completo e o modo espelho continuam rodando depois disso, até você
+clicar em Parar ou rodar `./scripts/stop.sh`. O painel só deixa rodar uma
+simulação (ou captura) por vez.
+
+**Atalho de terminal: o menu.** `scripts/menu.sh` faz os mesmos passos, pergunta
+por pergunta, no lugar das telas do mestrado; só a interface web (passo 5) ainda
 não está nele. Cada opção pergunta os campos (Enter
 aceita o padrão entre colchetes), mostra o comando e pergunta se executa. Ele
 descobre sozinho o arquivo de janela. Os passos abaixo são os mesmos comandos,
@@ -394,6 +410,8 @@ rodando (veja a tabela abaixo).
 | Espelho marca o braço errado | Troque `FLIP` (`true`/`false`) ou `ARM=left` |
 | Captura não termina | Alguma categoria não recebe amostras: aumente `TOLERANCE`, reduza `SAMPLES`, ou encerre com Ctrl+C (o que foi gravado é salvo) |
 | `Myo dongle not found!` | Confira o dispositivo (`ls /dev/ttyACM*`) e passe `MYO_TTY=/dev/ttyACM0` com `-f docker/compose.myo.yaml` |
+| Painel: "Não consegui usar a porta 8000" | Já há um painel aberto (use a aba que já existe) ou outro programa usa a porta: `python3 scripts/painel.py --abrir --porta 8001` |
+| Painel: botão "Iniciar" apagado, com "Pare … antes" | Já há uma simulação ou captura rodando; duas ao mesmo tempo misturariam as leituras. Clique em Parar no cartão dela, ou em Parar tudo |
 | `http://localhost:8080` não abre (Windows) | Faltou `-f docker/compose.desktop.yaml`: sem ele, as portas ficam dentro da máquina virtual do Docker. Confira com `docker ps` se o `mestrado-web-portas-1` está de pé |
 | Página: "sem conexão com o rosbridge" | O serviço `web` caiu ou não subiu: veja `docker compose -f docker/compose.yaml logs web`. Se aparecer `file 'web.launch.py' was not found` ou `package 'rosbridge_server' not found`, a imagem é anterior a esta versão: reconstrua (passo 3) |
 | Página: "conectado, mas sem /joint_states" | O braço não está rodando: suba `braco` (ou `sim`) junto com `web` |
