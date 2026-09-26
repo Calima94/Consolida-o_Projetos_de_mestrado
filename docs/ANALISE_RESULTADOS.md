@@ -1,8 +1,71 @@
-# Análise dos resultados do mestrado
+# Análise dos conjuntos de dados do mestrado
 
-O que os dados do mestrado permitem concluir sobre os classificadores, e o que
-não permitem. Todas as figuras e números saem do comando `analyze_legacy`
-(opção 5 do `scripts/menu.sh`), com semente 42; o teste
+## Contexto e escopo
+
+**Esta análise avalia os conjuntos de dados gravados no mestrado, não a
+dissertação.** Ela não deve ser lida como um veredito sobre o trabalho.
+
+**O que a dissertação se propôs a entregar.** A dissertação é *Plataformas de
+Código Aberto para Simulação, Captura de Sinais Miográficos e Visão
+Computacional para Análise Cinemática e Classificação de Movimentos Utilizando
+Aprendizado de Máquinas* (UFABC, Programa de Pós-Graduação em Engenharia da
+Informação). O objetivo geral, na Introdução, era "elaborar um simulador de
+próteses e braços mecânicos utilizando softwares gratuitos de interface gráfica
+usando instrumentos de baixo custo de captação de sinais EMG e captação de
+imagens para treinamento e calibração dos algoritmos utilizados no simulador".
+Os quatro objetivos específicos eram:
+
+1. uma interface gráfica para captura de sinais EMG;
+2. uma interface entre a captura e o sistema de controle do simulador;
+3. modelar a prótese/braço em ambiente virtual;
+4. uma interface para a simulação.
+
+**Nenhum deles é sobre acurácia de classificação.** O capítulo de Resultados
+descreve as telas e o que a ferramenta faz: o menu de matriz de confusão, a aba
+de curva ROC, o modelo no Gazebo. Não há tabela de acurácia no capítulo. O
+"acima de 90 % em alguns casos" do resumo se refere a **próteses comerciais de
+terceiros**, como parte da justificativa de custo ("da ordem de $50 mil
+dólares"), e não aos classificadores do trabalho.
+
+**Fonte dessas informações.** Caio conferiu esses pontos na fonte LaTeX da
+defesa (`Defesa_de_Mestrado_Caio_Lima`), em 2026-09-26. Essa fonte não está
+neste repositório, então os trechos citados aqui não puderam ser conferidos
+nele.
+
+**O que é o `6_10_20220.csv`.** É dado de demonstração do módulo de treino: um
+conjunto de duas classes que existia para exercitar a interface. Os números
+obtidos sobre ele nunca foram uma alegação científica da dissertação: nem os
+0,9444 da tela de treino da época, nem os 88–100 % que o porte obtém hoje.
+
+**O que esta análise avalia.** Ela caracteriza **esse conjunto de dados**, não
+a contribuição do mestrado. A contribuição é a plataforma, e ela se sustenta:
+quatro anos depois, o sistema sobe, simula e responde a comando em Windows 11 +
+WSL2 + Docker + ROS 2 Lyrical + Gazebo Jetty, num ambiente que não existia
+quando foi escrita (ver o [README](../README.md) e o
+[`COMO_RODAR.md`](COMO_RODAR.md)).
+
+**Para que ela serve:**
+- orientar as próximas coletas (seção final);
+- evitar que alguém reutilize os números deste conjunto como evidência de
+  reconhecimento de postura do cotovelo.
+
+**Um resultado da época, fora da versão final.** Em `chapters/d_resultados.tex`
+da defesa há, **comentado** (fora da versão final), um resultado com quatro
+ângulos (0°, 30°, 60° e 90°): "obtendo-se erros inferiores a 10% ... até erros
+próximos de 50% ... a média dos erros variam na faixa de 20% a 25%". Por ter
+ficado fora do texto final, e com a medida de erro descrita só nesse trecho,
+ele entra aqui como contexto, não como resultado. É compatível com o que esta
+análise encontra: com duas classes, um único número de amplitude separa tudo;
+com quatro ângulos, o erro relatado sobe. Os dados desses quatro ângulos não
+estão neste repositório, então não dá para testar aqui se a amplitude deixa de
+bastar nesse caso. O problema difícil já aparecia na época.
+
+## Como os números foram obtidos
+
+O resto deste documento trata do que estes conjuntos de dados permitem
+concluir sobre classificação de postura, e do que não permitem. Todas as
+figuras e números saem do comando `analyze_legacy` (opção 5 do
+`scripts/menu.sh`), com semente 42; o teste
 `tests/test_analysis.py::test_documented_numbers_of_the_thesis_file` confere os
 números citados aqui. Rodado em 2026-09-26, scikit-learn 1.7.2 (imagem Docker)
 e 1.9.1 (host), com os mesmos resultados.
@@ -14,16 +77,18 @@ docker compose -f docker/compose.yaml run --rm train \
 
 ## Resumo
 
-1. **Os cinco classificadores acertam de 88 % a 100 %, mas uma regra de um
-   número só faz o mesmo.** A média do MAV dos 8 canais, com um limiar
+1. **Neste conjunto, os cinco classificadores acertam de 88 % a 100 %, mas uma
+   regra de um número só faz o mesmo.** A média do MAV dos 8 canais, com um limiar
    (LDA de uma variável, chamada aqui de `amplitude`), acerta 100 % no
    hold-out e 98 % na validação cruzada. O que separa as duas categorias é o
-   **nível geral de ativação**, não um padrão entre músculos.
+   **nível geral de ativação**, não um padrão entre músculos. Por isso os
+   números deste conjunto não servem como evidência de reconhecimento de
+   postura.
 2. **Categoria e momento da gravação não se separam.** Cada categoria é um
    único bloco contínuo de ~8,5 s, gravado um depois do outro. Com esses dados
    não dá para dizer se o classificador reconhece a postura do cotovelo, o
    esforço, ou simplesmente "primeira metade × segunda metade" da gravação.
-3. **A validação honesta confirma os números, mas eles valem pouco.** A
+3. **A validação honesta confirma os números, mas o conjunto é pequeno.** A
    validação cruzada temporal (blocos, com purga) dá 97–100 %, quase igual à
    embaralhada. São 60 janelas de um sujeito numa sessão: cada erro no teste
    vale 6 pontos percentuais.
@@ -31,7 +96,7 @@ docker compose -f docker/compose.yaml run --rm train \
    Foram gravados no modo de 50 Hz do Myo (envoltória retificada, ~40
    amostras/s) e processados como se fossem de 200 Hz.
 
-## O arquivo do mestrado: `6_10_20220.csv`
+## O conjunto de demonstração: `6_10_20220.csv`
 
 Um sujeito, uma sessão, 2 categorias (1 = cotovelo a ~170°, 2 = a ~90°,
 segundo a ferramenta de captura), 3030 amostras em 17,1 s (~177 amostras/s:
@@ -87,6 +152,30 @@ Dentro de cada categoria não há tendência significativa ao longo do tempo
 (Spearman −0,19 e −0,29; p = 0,33 e 0,12).
 
 ![Sinal bruto](figuras/analise/6_10_20220_sinal_bruto.png)
+
+### Confirmação por outro caminho
+
+Caio refez a conta sem o `analyze_legacy` e sem os filtros do pipeline,
+direto no CSV, com o MAV do sinal bruto (média de |x| nos 8 canais). A
+conferência foi repetida nesta sessão, com os mesmos números:
+
+- **Uma única transição de categoria no arquivo inteiro.** A categoria 1 vai
+  de t = 34,14 a 41,72 s e a categoria 2, de t = 43,67 a 51,24 s: dois blocos
+  contíguos, um depois do outro.
+- **MAV médio por categoria:** 2,775 e 1,769, razão de 1,57.
+- **Janelas de 50 amostras (250 ms a 200 Hz), 60 no total:**
+  - a categoria 1 vai de 2,203 a 3,837;
+  - a categoria 2 vai de 1,460 a 2,178;
+  - **não há sobreposição** entre as duas faixas.
+- **Limiar sem otimizar**, no ponto médio entre as médias das duas categorias:
+  96,7 %. Qualquer limiar entre 2,178 e 2,203 dá 100 %.
+
+Nessa conta, as janelas são cortadas no arquivo inteiro, e a única janela que
+atravessa a transição fica com a categoria da maioria das amostras. Cortando as
+janelas dentro de cada categoria, como o pipeline faz, a categoria 2 vai de
+1,492 a 2,092 e a conclusão é a mesma. A separabilidade é ainda mais completa
+do que as acurácias acima sugerem: as duas categorias não se sobrepõem em
+amplitude nenhuma vez.
 
 ### O que isso quer dizer
 

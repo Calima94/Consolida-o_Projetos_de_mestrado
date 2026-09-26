@@ -168,7 +168,9 @@ São 60 janelas de um único sujeito e 16 a 18 janelas de teste: os números
 servem para conferir que o porte está fiel, **não como resultado científico**.
 A [análise](docs/ANALISE_RESULTADOS.md) mostra por quê: uma regra de um número
 só (a amplitude média dos canais) acerta tanto quanto os cinco classificadores,
-e cada categoria é um único bloco de tempo da gravação.
+e cada categoria é um único bloco de tempo da gravação. Ela tem escopo definido
+e começa pelo contexto: avalia esse conjunto de demonstração, não a
+dissertação, cuja contribuição é a plataforma, e não a acurácia.
 
 ## Estrutura
 
