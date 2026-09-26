@@ -78,6 +78,19 @@ docker version          # deve mostrar Client e Server
 echo $DISPLAY           # deve mostrar :0 (é o WSLg)
 ```
 
+Depois de baixar o projeto ([passo 1 de "Rodando"](#1-baixar-o-projeto)),
+use a verificação rápida antes da sequência, e de novo a cada sessão (o Docker
+Desktop pode ter ficado fechado depois de uma reinicialização do Windows):
+
+```bash
+scripts/check_docker.sh
+```
+
+Ela só lê o estado, sem mudar nada. Confere se o `docker` do Ubuntu é o da
+integração (`/usr/bin/docker`), se o motor responde e se não ficou nenhum
+simulador do projeto rodando. Em caso de problema, diz a causa provável e o
+conserto; só termina com "Tudo certo" (código 0) se tudo passar.
+
 **Todos os comandos daqui para frente são no terminal do Ubuntu (WSL)**, não
 no PowerShell. Trabalhe dentro do Linux (`~`), não em `/mnt/c/...`: é muito
 mais rápido.
@@ -264,6 +277,7 @@ rodando (veja a tabela abaixo).
 | Sintoma | O que fazer |
 |---|---|
 | Docker Desktop: "Virtualization not detected" | Virtualização desligada na BIOS ou componentes do Windows faltando: ver o quadro no [passo 2 do Windows](#2-instalar-o-docker-desktop) |
+| `The command 'docker' could not be found in this WSL 2 distro. We recommend to activate the WSL integration in Docker Desktop settings.` | **Mexer no botão de "WSL integration" costuma NÃO ser o conserto.** Rode `scripts/check_docker.sh`, que aponta a causa. **A (a mais comum):** o Docker Desktop não está rodando, por exemplo depois de reiniciar o Windows com "Start Docker Desktop when you sign in" desligado; abra o Docker Desktop e espere o motor subir (~10 s). **B:** a distro padrão do WSL é a `docker-desktop` (acontece quando o Docker Desktop foi instalado antes do Ubuntu), e a integração com a distro padrão nunca chega ao Ubuntu; confira com `wsl --list --verbose` no PowerShell (o `*` marca a padrão), conserte com `wsl --set-default Ubuntu` e reinicie o Docker Desktop. **Armadilha:** se `command -v docker` mostrar um caminho em `/mnt/c/...`, é o binário do Windows alcançado por interop, e isso não prova que a integração funciona; o que vale é `/usr/bin/docker` e `docker version` mostrando Client **e** Server |
 | `permission denied` no `docker` | Linux: faça os passos pós-instalação e abra outro terminal. Windows: o Docker Desktop precisa estar aberto e com a integração WSL ligada |
 | A janela não abre (Linux) | Rode `xhost +local:` e confira se usou `-f docker/compose.gui.yaml` |
 | A janela não abre (Windows) | `echo $DISPLAY` no Ubuntu deve dar `:0`; atualize o WSL (`wsl --update` no PowerShell) e confira se usou `-f docker/compose.wsl.yaml` |
