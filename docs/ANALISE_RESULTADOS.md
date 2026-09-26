@@ -67,11 +67,31 @@ As seis faixas, como o próprio texto as descreve:
 | vertical | 0°, 45°, 90° | parecido com o caso anterior; erros menores que 5 %, exceto o linear-SVM |
 | vertical | 0°, 90° | praticamente nulo (árvore de decisão ≈ 0,5 %) |
 
-O mesmo trecho discute duas hipóteses:
-- o erro aumentava nas amostras gravadas mais tarde, e a possível causa
-  apontada era a fadiga muscular;
-- o erro era menor com o antebraço na vertical porque é preciso mais força
-  contra a gravidade, "aumentando assim a amplitude do sinal capturado".
+O mesmo trecho também discute os resultados. Sobre o erro, levanta uma
+hipótese: ele aumentava nas amostras gravadas mais tarde, e a possível causa
+apontada era a fadiga muscular.
+
+Sobre a separação das classes, traz três observações que antecipam o
+resultado desta análise:
+- "com o aumento do ângulo de flexão ou extensão do antebraço há uma
+  necessidade de um recrutamento maior de MUAPs [...] (portanto maior
+  intensidade do sinal captado para um músculo específico)";
+- o erro era menor com o antebraço na vertical "pelo fato de que é necessário
+  se realizar uma força muscular maior para se contrapor a força da gravidade
+  nessas situações, aumentando assim a amplitude do sinal capturado";
+- "não houveram diferenças significativas entre os erros de classificação
+  entre os classificadores k-NN, *Gauss Naive Bayes* e LDA".
+
+Esses trechos já estão no rascunho de junho de 2021
+(`chapters/bkps_2021_jun_28/d_resultados.tex`).
+
+**A análise confirma o que o autor já tinha observado.** As três observações
+dizem o mesmo que esta análise encontra: o que separa as classes é o nível de
+ativação do sinal, e o classificador escolhido pouco importa. Em 2021, a
+conclusão veio do raciocínio fisiológico. Aqui, ela vem de validação cruzada e
+de uma referência de um número só, a `amplitude`, que empata com os cinco
+classificadores. Esta análise não aponta uma limitação nova: confirma, com
+método, uma observação que o trabalho já fazia.
 
 Esses resultados entram aqui como **contexto, não como resultado**, porque
 ficaram fora do texto final. Eles são compatíveis com esta análise por dois
@@ -81,8 +101,7 @@ lados:
   amplitude do sinal.
 
 Os dados dessas seis condições não estão neste repositório, então não dá para
-testar aqui se a referência `amplitude` explicaria cada caso. O problema
-difícil, e a suspeita sobre a amplitude, já tinham aparecido na época.
+testar aqui se a referência `amplitude` explicaria cada caso.
 
 ## Como os números foram obtidos
 
@@ -107,7 +126,8 @@ docker compose -f docker/compose.yaml run --rm train \
    hold-out e 98 % na validação cruzada. O que separa as duas categorias é o
    **nível geral de ativação**, não um padrão entre músculos. Por isso os
    números deste conjunto não servem como evidência de reconhecimento de
-   postura.
+   postura. É o mesmo mecanismo que o texto da defesa já apontava em 2021
+   (ver "Contexto e escopo").
 2. **Categoria e momento da gravação não se separam.** Cada categoria é um
    único bloco contínuo de ~8,5 s, gravado um depois do outro. Com esses dados
    não dá para dizer se o classificador reconhece a postura do cotovelo, o
