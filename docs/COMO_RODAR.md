@@ -128,6 +128,16 @@ Arquivo de janela para o Linux: `docker/compose.gui.yaml`.
 
 ## Rodando
 
+**Atalho: o menu.** Depois do passo 1, `scripts/menu.sh` faz os passos 2 a 8
+por você, no lugar das telas do mestrado. Cada opção pergunta os campos (Enter
+aceita o padrão entre colchetes), mostra o comando e pergunta se executa. Ele
+descobre sozinho o arquivo de janela. Os passos abaixo são os mesmos comandos,
+para rodar à mão.
+
+```bash
+scripts/menu.sh
+```
+
 Nos comandos abaixo, `JANELA` é o arquivo de janela do seu sistema. Defina uma
 vez por terminal:
 
@@ -214,6 +224,30 @@ cotovelo a cada segundo, como o painel do mestrado.
 
 Para outro classificador: `MODEL=lda_6-10-20220_mav_temporal_latest.joblib`
 antes do comando (os nomes estão em `models/`).
+
+**Ver os resultados do treino** (a aba "Results" da tela do mestrado; opção 5
+do menu):
+
+```bash
+docker compose -f docker/compose.yaml run --rm train \
+  ros2 run mestrado_emg analyze_legacy /data/6_10_20220.csv --out /models/analise
+```
+
+Imprime uma tabela de acurácia, validação cruzada e AUC e grava em
+`models/analise/6-10-20220_mav_temporal/`:
+
+- `scores.png`: acurácia de cada classificador;
+- `confusao.png`: matrizes de confusão;
+- `roc.png`: curva ROC;
+- `sinal_bruto.png`: sinal bruto;
+- `features_por_canal.png` e `features_c1_c2.png`: features por categoria;
+- `resumo.md`: o resumo.
+
+No Windows, abra a pasta com `cd models/analise && explorer.exe .`. Opções:
+`--feature rms`, `--split legacy`, `--cv 5` (partições), `--pair 3 4` (canais
+do gráfico de dispersão). Se o comando não existir, a imagem é de antes desta
+versão: reconstrua (passo 3). O que esses resultados querem dizer está em
+[`ANALISE_RESULTADOS.md`](ANALISE_RESULTADOS.md).
 
 ### 6. Modo espelho: o braço do Gazebo copia o seu
 

@@ -61,6 +61,10 @@ Numerados para referência. A coluna "No porte" diz o que foi feito com cada um.
 | 18 | A API `mp.solutions.pose` **não existe no MediaPipe 1.x** | Conteúdo do wheel `mediapipe-1.0.1` | API Tasks (`PoseLandmarker`), mesmos marcos (D13) |
 | 19 | A gravação usava o último ângulo medido indefinidamente, mesmo se a câmera perdesse o braço | Variável global `actual_angle` | Ângulo com mais de 0,5 s é tratado como desconhecido |
 | 20 | O vídeo salvo pela ferramenta (`Videos/test_2_05.avi`) já está espelhado e tem o traçado desenhado por cima | O vídeo | Processar com `flip=false` (D14). O traçado atrapalha a detecção onde cobre o braço |
+| 21 | **Os arquivos `train_with_openCV_list_16_05*.csv` foram gravados no modo de 50 Hz do Myo** (envoltória retificada: valores de 17 a 637, ~40 amostras/s), mas eram o arquivo padrão da tela de treino, que os processava como 200 Hz. O `6_10_20220.csv`, dos scores históricos, é bruto (−27 a 15, ~177 amostras/s) | Coluna `time` e faixa de valores; `train_emg_data.ui` | `analyze_legacy` mede a taxa e avisa; os dois arquivos ficam fora dos resultados ([ANALISE_RESULTADOS.md](ANALISE_RESULTADOS.md)) |
+| 22 | **Categoria e tempo confundidos.** No `6_10_20220.csv` cada categoria é um único bloco contínuo, gravado uma depois da outra, e uma regra de um número (média do MAV dos 8 canais) acerta tanto quanto os cinco classificadores | `analyze_legacy`: referência `amplitude` 1,00 no hold-out e 0,98 na CV temporal | Documentado; a referência `amplitude` entra em toda análise |
+| 23 | Os SOS do mestrado não têm o ganho: o passa-altas amplifica 15,5× e o rejeita-faixa 1,5× na banda de passagem | `scipy.signal.sosfreqz` | **Inofensivo** para os cinco classificadores, que não mudam com escala uniforme; mantido por fidelidade |
+| 24 | A curva ROC da tela de treino usava a previsão 0/1, o que dá um ponto só; o campo `cv` existia, mas as chamadas de validação cruzada estavam comentadas | `Train_Myo_Signals/main.py` (`plot_roc_curve`), `mod_sig_emg.apply_classifiers` | ROC com escore contínuo e CV temporal e embaralhada no `analyze_legacy` |
 
 ## Ângulo do cotovelo: MediaPipe 1.x × ferramenta original
 

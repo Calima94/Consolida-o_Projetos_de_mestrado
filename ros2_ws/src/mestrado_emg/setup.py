@@ -24,6 +24,7 @@ setup(
             "angle_monitor = mestrado_emg.nodes.angle_monitor:main",
             "arm_controller = mestrado_emg.nodes.arm_controller:main",
             "train_legacy = mestrado_emg.training:main",
+            "analyze_legacy = mestrado_emg.analysis:main",
         ],
     },
 )
