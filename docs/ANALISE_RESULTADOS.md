@@ -27,10 +27,11 @@ de curva ROC, o modelo no Gazebo. Não há tabela de acurácia no capítulo. O
 terceiros**, como parte da justificativa de custo ("da ordem de $50 mil
 dólares"), e não aos classificadores do trabalho.
 
-**Fonte dessas informações.** Caio conferiu esses pontos na fonte LaTeX da
-defesa (`Defesa_de_Mestrado_Caio_Lima`), em 2026-09-26. Essa fonte não está
-neste repositório, então os trechos citados aqui não puderam ser conferidos
-nele.
+**Fonte dessas informações.** A fonte LaTeX da defesa
+(`Defesa_de_Mestrado_Caio_Lima`: `main.tex`, `cover/resumo.tex`,
+`chapters/a_introducao.tex`, `chapters/d_resultados.tex`). Os trechos citados
+aqui foram conferidos nela em 2026-09-26. Ela **não está neste repositório**:
+para conferir de novo, é preciso pedi-la ao Caio.
 
 **O que é o `6_10_20220.csv`.** É dado de demonstração do módulo de treino: um
 conjunto de duas classes que existia para exercitar a interface. Os números
@@ -49,16 +50,39 @@ quando foi escrita (ver o [README](../README.md) e o
 - evitar que alguém reutilize os números deste conjunto como evidência de
   reconhecimento de postura do cotovelo.
 
-**Um resultado da época, fora da versão final.** Em `chapters/d_resultados.tex`
-da defesa há, **comentado** (fora da versão final), um resultado com quatro
-ângulos (0°, 30°, 60° e 90°): "obtendo-se erros inferiores a 10% ... até erros
-próximos de 50% ... a média dos erros variam na faixa de 20% a 25%". Por ter
-ficado fora do texto final, e com a medida de erro descrita só nesse trecho,
-ele entra aqui como contexto, não como resultado. É compatível com o que esta
-análise encontra: com duas classes, um único número de amplitude separa tudo;
-com quatro ângulos, o erro relatado sobe. Os dados desses quatro ângulos não
-estão neste repositório, então não dá para testar aqui se a amplitude deixa de
-bastar nesse caso. O problema difícil já aparecia na época.
+**Resultados da época, fora da versão final.** Em `chapters/d_resultados.tex`
+da defesa há uma seção inteira **comentada** (fora da versão final),
+"Resultados de classificação de posições usando métodos tradicionais". Ela
+relata o erro de classificação em seis condições. A primeira é a de quatro
+ângulos, com o antebraço na horizontal: "obtendo-se erros inferiores a 10% ...
+até erros próximos de 50% ... a média dos erros variam na faixa de 20% a 25%".
+As seis faixas, como o próprio texto as descreve:
+
+| Antebraço | Ângulos | Erro médio, segundo o trecho comentado |
+|---|---|---|
+| horizontal (paralelo ao plano sagital) | 0°, 30°, 60°, 90° | 20 % a 25 % |
+| horizontal | 0°, 45°, 90° | 5 % a 15 % |
+| horizontal | 0°, 90° | 2 % a 6 % |
+| vertical (paralelo ao plano frontal) | 0°, 30°, 60°, 90° | menor que 5 %, exceto o linear-SVM |
+| vertical | 0°, 45°, 90° | parecido com o caso anterior; erros menores que 5 %, exceto o linear-SVM |
+| vertical | 0°, 90° | praticamente nulo (árvore de decisão ≈ 0,5 %) |
+
+O mesmo trecho discute duas hipóteses:
+- o erro aumentava nas amostras gravadas mais tarde, e a possível causa
+  apontada era a fadiga muscular;
+- o erro era menor com o antebraço na vertical porque é preciso mais força
+  contra a gravidade, "aumentando assim a amplitude do sinal capturado".
+
+Esses resultados entram aqui como **contexto, não como resultado**, porque
+ficaram fora do texto final. Eles são compatíveis com esta análise por dois
+lados:
+- a dificuldade aparecia com mais ângulos e com o antebraço na horizontal;
+- a explicação que o próprio texto dava para os casos fáceis já era a
+  amplitude do sinal.
+
+Os dados dessas seis condições não estão neste repositório, então não dá para
+testar aqui se a referência `amplitude` explicaria cada caso. O problema
+difícil, e a suspeita sobre a amplitude, já tinham aparecido na época.
 
 ## Como os números foram obtidos
 
