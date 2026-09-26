@@ -35,7 +35,7 @@ sEMG (Myo, ou CSV gravado) ──► /emg/raw ──► emg_classifier ──►
 | Análise dos resultados (a aba "Results" da tela de treino) | ✅ Figuras em PNG, validação cruzada e referência `amplitude`; conclusões em [`docs/ANALISE_RESULTADOS.md`](docs/ANALISE_RESULTADOS.md) |
 | Encerrar com Ctrl+C / `docker compose stop` / `scripts/stop.sh` | ✅ Sem processos sobrando (medido) |
 | Driver do Myo | ⚠️ Portado e com testes do protocolo, **mas nunca rodou com um Myo de verdade** |
-| Janelas (Gazebo e câmera) | ✅ Windows 11 + WSL2 + Docker Desktop: janela do Gazebo abre e o braço se move (renderização por software). ⚠️ Linux com monitor e a janela da câmera só testados em display virtual (Xvfb); webcam não testada |
+| Janelas (Gazebo e câmera) | ✅ Windows 11 + WSL2 + Docker Desktop: as janelas do Gazebo e da câmera abrem e o braço se move (renderização por software; modo espelho com o vídeo do mestrado). ⚠️ Linux com monitor só testado em display virtual (Xvfb); webcam não testada |
 
 O que mudou em relação ao mestrado, e por quê, está em
 [`docs/DECISOES.md`](docs/DECISOES.md). Os problemas encontrados no código
@@ -141,6 +141,17 @@ um nó driver; classificador e simulador não mudam.
    taxa diferentes não deixam os modelos do Myo se transferirem.
 
 ## Testes e CI
+
+O jeito mais simples, sem instalar nada no host: `scripts/ci_local.sh` roda,
+dentro do Docker, os mesmos passos do CI (compose, imagem, ruff, testes e os
+dois testes de ponta a ponta; uns 2 minutos) e termina com um resumo. Com
+`--rapido`, só compose, ruff e testes (uns 30 s, sem construir a imagem).
+
+```bash
+scripts/ci_local.sh
+```
+
+Ou à mão, no Python do host (sem os testes que dependem de ROS):
 
 ```bash
 pip install numpy scipy scikit-learn PyWavelets pandas joblib pyyaml matplotlib pytest ruff

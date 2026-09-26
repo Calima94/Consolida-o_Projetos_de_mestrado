@@ -5,13 +5,18 @@ roda dentro do Docker: você não instala ROS nem Gazebo no seu sistema.
 
 > **O que foi testado e o que não foi.** Todos os comandos abaixo foram
 > executados num Linux sem monitor (Gazebo sem janela e janelas num display
-> virtual). No **Windows 11 + WSL2 + Docker Desktop** foram testados o
-> [passo 4](#4-ver-o-braço-no-gazebo), em que a janela do Gazebo abre e o braço
-> se move (Windows 11 build 26200, WSL 2.7.14.0, WSLg 1.0.73.2, Ubuntu 26.04.1,
-> Docker Desktop 4.92.0), e o [passo 5](#5-pilotar-o-braço-pelo-navegador), a
-> interface web, no navegador do Windows. Os passos 6 a 8 no Windows, o Linux
-> com monitor de verdade, a interface web no Linux e no celular e a webcam
-> **ainda não** foram testados. Se algo falhar, a seção
+> virtual). No **Windows 11 + WSL2 + Docker Desktop** (Windows 11 build 26200,
+> WSL 2.7.14.0, WSLg 1.0.73.2, Ubuntu 26.04.1, Docker Desktop 4.92.0) foram
+> testados todos os passos:
+> - o [passo 4](#4-ver-o-braço-no-gazebo): a janela do Gazebo abre e o braço
+>   se move;
+> - o [passo 5](#5-pilotar-o-braço-pelo-navegador): a interface web, no
+>   navegador do Windows;
+> - os passos 6 a 8, pelo menu, com o vídeo do mestrado e sEMG reproduzido. No
+>   modo espelho, as janelas da câmera e do Gazebo abrem juntas.
+>
+> **Ainda não** foram testados o Linux com monitor de verdade, a interface web
+> no Linux e no celular, a webcam e a faixa Myo. Se algo falhar, a seção
 > [Se algo der errado](#se-algo-der-errado) cobre os casos mais prováveis.
 
 Escolha o seu sistema:
