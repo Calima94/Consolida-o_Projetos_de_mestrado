@@ -74,8 +74,9 @@ def _run(tmp_path, docker=None, wsl=True, docker_dir_name="bin", windows=None, d
         exe.chmod(exe.stat().st_mode | stat.S_IEXEC)
         path.insert(0, str(ddir))
     env = {"PATH": os.pathsep.join(path), "HOME": str(tmp_path)}
-    if wsl:
-        env["CHECK_DOCKER_FORCE_WSL"] = "1"
+    # Forced both ways, so the tests also pass inside a Docker Desktop container,
+    # whose kernel is WSL's.
+    env["CHECK_DOCKER_FORCE_WSL"] = "1" if wsl else "0"
     if distro:
         env["WSL_DISTRO_NAME"] = distro
     # Stand-in for /mnt/: a docker found under it is the Windows binary via interop.
