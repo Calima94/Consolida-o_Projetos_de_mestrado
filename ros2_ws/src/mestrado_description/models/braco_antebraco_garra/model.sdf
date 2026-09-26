@@ -1,0 +1,262 @@
+<?xml version="1.0"?>
+<!--
+  Arm + forearm + gripper from the master's thesis
+  (my_arm_def/src/my_arm_def_cpp_pkg/models/braco_antebraco_garra.sdf), ported
+  from Gazebo Classic 11 to Gazebo Jetty.
+
+  Kept from the original: link poses, masses, inertias, geometry, joint types,
+  axes and limits. Changed (see docs/DECISOES.md):
+  - joints and links renamed (legacy names in the comments);
+  - OGRE material scripts replaced by plain colours (not supported in gz);
+  - self_collide disabled (adjacent links touch by construction);
+  - the custom Gazebo Classic plugin libarm_control.so is replaced by the
+    official JointStatePublisher and JointController (velocity mode) systems;
+    the thesis P position loop is the ROS node mestrado_emg/arm_controller.
+-->
+<sdf version="1.9">
+  <model name="braco_antebraco_garra">
+    <static>false</static>
+    <self_collide>false</self_collide>
+
+    <!-- legacy link_0 -->
+    <link name="shoulder_link">
+      <pose>0 0 0.015 0 0 0</pose>
+      <inertial>
+        <mass>0.175</mass>
+        <inertia><ixx>0.0175</ixx><iyy>0.0175</iyy><izz>0.0175</izz><ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia>
+      </inertial>
+      <visual name="visual">
+        <geometry><sphere><radius>0.015</radius></sphere></geometry>
+        <material><ambient>0.3 0.3 0.3 1</ambient><diffuse>0.7 0.7 0.7 1</diffuse><specular>0.01 0.01 0.01 1</specular></material>
+      </visual>
+      <collision name="collision">
+        <geometry><sphere><radius>0.015</radius></sphere></geometry>
+      </collision>
+    </link>
+
+    <!-- legacy link_1 -->
+    <link name="upper_arm_link">
+      <pose>0 0 0.14 0 0 0</pose>
+      <inertial>
+        <mass>1.924</mass>
+        <inertia><ixx>0.280583</ixx><iyy>0.280583</iyy><izz>0.2405</izz><ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia>
+      </inertial>
+      <visual name="visual">
+        <geometry><cylinder><radius>0.015</radius><length>0.22</length></cylinder></geometry>
+        <material><ambient>0.3 0.3 0.3 1</ambient><diffuse>0.7 0.7 0.7 1</diffuse><specular>0.01 0.01 0.01 1</specular></material>
+      </visual>
+      <collision name="collision">
+        <geometry><cylinder><radius>0.015</radius><length>0.22</length></cylinder></geometry>
+      </collision>
+    </link>
+
+    <!-- legacy link_2 -->
+    <link name="elbow_link">
+      <pose>0 0 0.265 0 0 0</pose>
+      <inertial>
+        <mass>0.175</mass>
+        <inertia><ixx>0.0175</ixx><iyy>0.0175</iyy><izz>0.0175</izz><ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia>
+      </inertial>
+      <visual name="visual">
+        <geometry><sphere><radius>0.015</radius></sphere></geometry>
+        <material><ambient>0.3 0.3 0.3 1</ambient><diffuse>0.7 0.7 0.7 1</diffuse><specular>0.01 0.01 0.01 1</specular></material>
+      </visual>
+      <collision name="collision">
+        <geometry><sphere><radius>0.015</radius></sphere></geometry>
+      </collision>
+    </link>
+
+    <!-- legacy link_3 -->
+    <link name="forearm_link">
+      <pose>0 0 0.39 0 0 0</pose>
+      <inertial>
+        <mass>1.184</mass>
+        <inertia><ixx>0.00484207</ixx><iyy>0.00484207</iyy><izz>0.0001332</izz><ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia>
+      </inertial>
+      <visual name="visual">
+        <geometry><cylinder><radius>0.015</radius><length>0.22</length></cylinder></geometry>
+        <material><ambient>0.3 0.3 0.3 1</ambient><diffuse>0.7 0.7 0.7 1</diffuse><specular>0.01 0.01 0.01 1</specular></material>
+      </visual>
+      <collision name="collision">
+        <geometry><cylinder><radius>0.015</radius><length>0.22</length></cylinder></geometry>
+      </collision>
+    </link>
+
+    <!-- legacy link_4 -->
+    <link name="gripper_base_link">
+      <pose>0 0 0.515 0 0 0</pose>
+      <inertial>
+        <mass>0.15</mass>
+        <inertia><ixx>0.025</ixx><iyy>0.025</iyy><izz>0.025</izz><ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia>
+      </inertial>
+      <visual name="visual">
+        <geometry><box><size>0.11 0.03 0.03</size></box></geometry>
+        <material><ambient>0.3 0.3 0.3 1</ambient><diffuse>0.7 0.7 0.7 1</diffuse><specular>0.01 0.01 0.01 1</specular></material>
+      </visual>
+      <collision name="collision">
+        <geometry><box><size>0.11 0.03 0.03</size></box></geometry>
+      </collision>
+    </link>
+
+    <!-- legacy link_5 -->
+    <link name="finger_left_base_link">
+      <pose>-0.085 0 0.515 0 0 0</pose>
+      <inertial>
+        <mass>0.05</mass>
+        <inertia><ixx>4.5e-06</ixx><iyy>4.5e-06</iyy><izz>4.5e-06</izz><ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia>
+      </inertial>
+      <visual name="visual">
+        <geometry><sphere><radius>0.03</radius></sphere></geometry>
+        <material><ambient>0.3 0.3 0.3 1</ambient><diffuse>0.7 0.7 0.7 1</diffuse><specular>0.01 0.01 0.01 1</specular></material>
+      </visual>
+      <collision name="collision">
+        <geometry><sphere><radius>0.03</radius></sphere></geometry>
+      </collision>
+    </link>
+
+    <!-- legacy link_6 -->
+    <link name="finger_right_base_link">
+      <pose>0.085 0 0.515 0 0 0</pose>
+      <inertial>
+        <mass>0.05</mass>
+        <inertia><ixx>4.5e-06</ixx><iyy>4.5e-06</iyy><izz>4.5e-06</izz><ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia>
+      </inertial>
+      <visual name="visual">
+        <geometry><sphere><radius>0.03</radius></sphere></geometry>
+        <material><ambient>0.3 0.3 0.3 1</ambient><diffuse>0.7 0.7 0.7 1</diffuse><specular>0.01 0.01 0.01 1</specular></material>
+      </visual>
+      <collision name="collision">
+        <geometry><sphere><radius>0.03</radius></sphere></geometry>
+      </collision>
+    </link>
+
+    <!-- legacy link_7 -->
+    <link name="finger_left_link">
+      <pose>-0.085 0 0.62 0 0 0</pose>
+      <inertial>
+        <mass>0.125</mass>
+        <inertia><ixx>0.00024375</ixx><iyy>0.00024375</iyy><izz>1.875e-05</izz><ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia>
+      </inertial>
+      <visual name="visual">
+        <geometry><box><size>0.03 0.03 0.15</size></box></geometry>
+        <material><ambient>0.3 0.3 0.3 1</ambient><diffuse>0.7 0.7 0.7 1</diffuse><specular>0.01 0.01 0.01 1</specular></material>
+      </visual>
+      <collision name="collision">
+        <geometry><cylinder><radius>0.015</radius><length>0.15</length></cylinder></geometry>
+      </collision>
+    </link>
+
+    <!-- legacy link_8 -->
+    <link name="finger_right_link">
+      <pose>0.085 0 0.62 0 0 0</pose>
+      <inertial>
+        <mass>0.125</mass>
+        <inertia><ixx>0.00024375</ixx><iyy>0.00024375</iyy><izz>1.875e-05</izz><ixy>0</ixy><ixz>0</ixz><iyz>0</iyz></inertia>
+      </inertial>
+      <visual name="visual">
+        <geometry><box><size>0.03 0.03 0.15</size></box></geometry>
+        <material><ambient>0.3 0.3 0.3 1</ambient><diffuse>0.7 0.7 0.7 1</diffuse><specular>0.01 0.01 0.01 1</specular></material>
+      </visual>
+      <collision name="collision">
+        <geometry><cylinder><radius>0.015</radius><length>0.15</length></cylinder></geometry>
+      </collision>
+    </link>
+
+    <!-- legacy world_JOINT_0 -->
+    <joint name="shoulder_joint" type="revolute">
+      <parent>world</parent>
+      <child>shoulder_link</child>
+      <axis>
+        <xyz>1 0 0</xyz>
+        <limit><lower>-3.15</lower><upper>3.15</upper><effort>1e6</effort><velocity>-1</velocity></limit>
+        <dynamics><damping>0</damping><spring_reference>0</spring_reference><spring_stiffness>0</spring_stiffness></dynamics>
+      </axis>
+    </joint>
+    <!-- legacy link_0_JOINT_0 -->
+    <joint name="upper_arm_fixed" type="fixed">
+      <parent>shoulder_link</parent>
+      <child>upper_arm_link</child>
+    </joint>
+    <!-- legacy link_1_JOINT_0 -->
+    <joint name="elbow_joint" type="revolute">
+      <parent>upper_arm_link</parent>
+      <child>elbow_link</child>
+      <axis>
+        <xyz>1 0 0</xyz>
+        <limit><lower>-3.15</lower><upper>3.15</upper><effort>1e6</effort><velocity>-1</velocity></limit>
+        <dynamics><damping>0</damping><spring_reference>0</spring_reference><spring_stiffness>0</spring_stiffness></dynamics>
+      </axis>
+    </joint>
+    <!-- legacy link_2_JOINT_0 -->
+    <joint name="forearm_fixed" type="fixed">
+      <parent>elbow_link</parent>
+      <child>forearm_link</child>
+    </joint>
+    <!-- legacy link_3_JOINT_0 -->
+    <joint name="gripper_fixed" type="fixed">
+      <parent>forearm_link</parent>
+      <child>gripper_base_link</child>
+    </joint>
+    <!-- legacy link_4_JOINT_0 -->
+    <joint name="gripper_left_joint" type="prismatic">
+      <parent>gripper_base_link</parent>
+      <child>finger_left_base_link</child>
+      <axis>
+        <xyz>1 0 0</xyz>
+        <limit><lower>-0.04</lower><upper>0.04</upper><effort>1e6</effort><velocity>-1</velocity></limit>
+      </axis>
+    </joint>
+    <!-- legacy link_4_JOINT_1 -->
+    <joint name="gripper_right_joint" type="prismatic">
+      <parent>gripper_base_link</parent>
+      <child>finger_right_base_link</child>
+      <axis>
+        <xyz>1 0 0</xyz>
+        <limit><lower>-0.04</lower><upper>0.04</upper><effort>1e6</effort><velocity>-1</velocity></limit>
+      </axis>
+    </joint>
+    <!-- legacy link_5_JOINT_0 / link_6_JOINT_0 -->
+    <joint name="finger_left_fixed" type="fixed">
+      <parent>finger_left_base_link</parent>
+      <child>finger_left_link</child>
+    </joint>
+    <joint name="finger_right_fixed" type="fixed">
+      <parent>finger_right_base_link</parent>
+      <child>finger_right_link</child>
+    </joint>
+
+    <!-- Replaces the joint_states* / inst_vel* publishers of libarm_control.so -->
+    <plugin filename="gz-sim-joint-state-publisher-system" name="gz::sim::systems::JointStatePublisher">
+      <topic>/arm/joint_states</topic>
+      <joint_name>shoulder_joint</joint_name>
+      <joint_name>elbow_joint</joint_name>
+      <joint_name>gripper_left_joint</joint_name>
+      <joint_name>gripper_right_joint</joint_name>
+    </plugin>
+
+    <!-- Replace the number* subscribers of libarm_control.so, which called
+         joint->SetVelocity() every step: each joint takes a velocity command.
+         The position loop (thesis arm_controller.py, v = kp * error) runs in
+         the ROS node mestrado_emg/arm_controller. -->
+    <plugin filename="gz-sim-joint-controller-system" name="gz::sim::systems::JointController">
+      <joint_name>shoulder_joint</joint_name>
+      <topic>/arm/shoulder/cmd_vel</topic>
+      <initial_velocity>0</initial_velocity>
+    </plugin>
+    <plugin filename="gz-sim-joint-controller-system" name="gz::sim::systems::JointController">
+      <joint_name>elbow_joint</joint_name>
+      <topic>/arm/elbow/cmd_vel</topic>
+      <initial_velocity>0</initial_velocity>
+    </plugin>
+    <plugin filename="gz-sim-joint-controller-system" name="gz::sim::systems::JointController">
+      <joint_name>gripper_left_joint</joint_name>
+      <topic>/arm/gripper_left/cmd_vel</topic>
+      <initial_velocity>0</initial_velocity>
+    </plugin>
+    <plugin filename="gz-sim-joint-controller-system" name="gz::sim::systems::JointController">
+      <joint_name>gripper_right_joint</joint_name>
+      <topic>/arm/gripper_right/cmd_vel</topic>
+      <initial_velocity>0</initial_velocity>
+    </plugin>
+  </model>
+</sdf>

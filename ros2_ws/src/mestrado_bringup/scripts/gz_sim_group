@@ -1,0 +1,63 @@
+#!/usr/bin/env python3
+"""Run a command in its own process group and forward stop signals to all of it.
+
+Used to start ``gz sim``. With the GUI, ``gz sim`` spawns the server and the
+GUI client as separate processes and does not pass SIGINT/SIGTERM on to them,
+so on shutdown they were left running (measured: launch escalated to SIGKILL
+after 15 s and 2 Gazebo processes survived). This is the same problem the
+thesis handled with ``killall gzserver gzclient``. Here every stop signal is
+sent to the whole group -- what Ctrl+C in a terminal does -- and anything
+still alive after the main process exits is terminated.
+
+Usage: gz_sim_group gz sim -r world.sdf
+"""
+
+import os
+import signal
+import subprocess
+import sys
+import time
+
+STOP_SIGNALS = (signal.SIGINT, signal.SIGTERM, signal.SIGHUP)
+
+
+def main() -> int:
+    if len(sys.argv) < 2:
+        print(__doc__, file=sys.stderr)
+        return 2
+
+    child = None
+
+    def forward(signum, _frame):
+        if child is not None:
+            try:
+                os.killpg(child.pid, signum)
+            except ProcessLookupError:
+                pass
+
+    # Installed before Popen: Python handlers reset to default in the child on
+    # exec, so the child never inherits an "ignore SIGINT" disposition.
+    for s in STOP_SIGNALS:
+        signal.signal(s, forward)
+
+    child = subprocess.Popen(sys.argv[1:], start_new_session=True)
+    rc = child.wait()
+
+    # Reap stragglers of the group (e.g. the GUI client once the server exits).
+    for sig, grace in ((signal.SIGTERM, 3.0), (signal.SIGKILL, 1.0)):
+        try:
+            os.killpg(child.pid, sig)
+        except ProcessLookupError:
+            break
+        deadline = time.monotonic() + grace
+        while time.monotonic() < deadline:
+            try:
+                os.killpg(child.pid, 0)
+            except ProcessLookupError:
+                break
+            time.sleep(0.05)
+    return rc if rc >= 0 else 128 - rc
+
+
+if __name__ == "__main__":
+    sys.exit(main())

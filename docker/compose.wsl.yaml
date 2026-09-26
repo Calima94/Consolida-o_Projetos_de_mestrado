@@ -1,0 +1,41 @@
+# Windows 11 + WSL2 (WSLg) with Docker Desktop: windows of Gazebo and of the
+# camera tool. Run the docker compose commands from the WSL Ubuntu terminal:
+#   GUI=true docker compose -f docker/compose.yaml -f docker/compose.wsl.yaml up sim
+#
+# Tested 2026-09 on Windows 11 build 26200, WSL 2.7.14.0 / WSLg 1.0.73.2,
+# Ubuntu 26.04.1, Docker Desktop 4.92.0 (engine 29.8.0): the Gazebo window opens
+# and the arm moves (elbow at 1.57 rad measured on /joint_states).
+#
+# Display: only the X11 socket (/tmp/.X11-unix) is mounted. /mnt/wslg is NOT:
+# Docker Desktop resolves bind mounts through docker-desktop-bind-mounts, which
+# fails with "timed out waiting for /mnt/wslg to be automounted" -- and the same
+# happens with the docker-desktop distro path /mnt/host/wslg, so it is a
+# limitation of the bind-mount mechanism, not of the path. /mnt/wslg only
+# carried Wayland and PulseAudio, which this simulation does not use; hence no
+# WAYLAND_DISPLAY/PULSE_SERVER, Qt forced to X11 (QT_QPA_PLATFORM=xcb) and a
+# runtime dir inside the container.
+#
+# Rendering: software (Mesa llvmpipe, LIBGL_ALWAYS_SOFTWARE=1); slower, but
+# enough for this arm. Hardware acceleration in WSL would go through /dev/dxg
+# with Mesa's d3d12 driver (not /dev/dri, which WSL does not have). That path
+# was TESTED AND DOES NOT WORK: with /dev/dxg mapped, /usr/lib/wsl mounted
+# (libd3d12, libd3d12core, libdxcore present), LD_LIBRARY_PATH=/usr/lib/wsl/lib,
+# MESA_LOADER_DRIVER_OVERRIDE=d3d12 and GALLIUM_DRIVER=d3d12 (d3d12_dri.so is
+# in the image), the Gazebo window opens but the 3D view stays black with
+# uninitialised memory at the top and no frame is drawn (RTX 5060, driver
+# 577.05). Do not remove LIBGL_ALWAYS_SOFTWARE without a new test.
+x-wslg: &wslg
+  environment:
+    - DISPLAY=${DISPLAY:-:0}
+    - XDG_RUNTIME_DIR=/tmp/runtime-dir
+    - QT_X11_NO_MITSHM=1
+    - QT_QPA_PLATFORM=xcb
+    - LIBGL_ALWAYS_SOFTWARE=1
+  volumes:
+    - /tmp/.X11-unix:/tmp/.X11-unix:rw
+
+services:
+  sim: *wslg
+  captura: *wslg
+  espelho: *wslg
+  shell: *wslg

@@ -1,0 +1,73 @@
+# Base services (headless-capable). Add compose.gui.yaml for the Gazebo window
+# and compose.myo.yaml for the Myo dongle, e.g.:
+#   docker compose -f docker/compose.yaml -f docker/compose.gui.yaml up sim
+name: mestrado
+
+x-ros: &ros
+  image: mestrado-ros:lyrical
+  build:
+    context: ..
+    dockerfile: docker/Dockerfile
+  network_mode: host
+  ipc: host
+  # Without these, `ros2 launch` runs as PID 1, ignores the SIGTERM sent by
+  # `docker compose stop` / Ctrl+C and gets SIGKILLed after the timeout
+  # (measured: 30 s, exit 137). tini forwards the signal and SIGINT triggers
+  # the same clean shutdown as Ctrl+C in a terminal (measured: 0.4 s).
+  init: true
+  stop_signal: SIGINT
+  stop_grace_period: 15s
+  environment:
+    - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}
+    # tini sends the stop signal to the whole process group, like Ctrl+C in a
+    # terminal. Otherwise gz sim (behind `sh -c ruby ...`) misses the SIGINT
+    # and launch has to escalate to SIGTERM after 5 s.
+    - TINI_KILL_PROCESS_GROUP=1
+  volumes:
+    - ../data:/data
+    - ../models:/models
+
+services:
+  # Train the thesis classifiers from a raw CSV (see scripts/fetch_legacy_data.sh).
+  train:
+    <<: *ros
+    command: >
+      ros2 run mestrado_emg train_legacy /data/6_10_20220.csv
+      --out /models --feature mav --split temporal --seed 42
+
+  # Gazebo + replayed sEMG + classifier. MODEL names a bundle in ../models
+  # (default: the k-NN trained by the `train` service, as used live in the thesis).
+  sim:
+    <<: *ros
+    command: >
+      ros2 launch mestrado_bringup mestrado.launch.py
+      source:=${SOURCE:-replay} gui:=${GUI:-false} tty:=${MYO_TTY:-auto}
+      csv_path:=/data/${CSV:-6_10_20220.csv}
+      model_path:=/models/${MODEL:-knn_6-10-20220_mav_temporal_latest.joblib}
+
+  # Thesis capture tool: camera elbow angle + sEMG recorded by angle category.
+  # CSV goes to ../data. Add compose.camera.yaml for a webcam.
+  captura:
+    <<: *ros
+    command: >
+      ros2 launch mestrado_bringup captura.launch.py
+      emg:=${EMG:-myo} camera:=${CAMERA:-0} flip:=${FLIP:-true} arm:=${ARM:-right}
+      n_categories:=${N_CATEGORIES:-2} tolerance_deg:=${TOLERANCE:-10.0}
+      samples_per_category:=${SAMPLES:-1000} continuous:=${CONTINUOUS:-false}
+      show_window:=${SHOW_WINDOW:-true} csv_path:=/data/${CSV:-6_10_20220.csv}
+      tty:=${MYO_TTY:-auto} out_dir:=/data
+
+  # Mirror mode: the Gazebo arm copies the elbow seen by the camera (no sEMG).
+  espelho:
+    <<: *ros
+    command: >
+      ros2 launch mestrado_bringup espelho.launch.py
+      camera:=${CAMERA:-0} flip:=${FLIP:-true} arm:=${ARM:-right}
+      gui:=${GUI:-true} show_window:=${SHOW_WINDOW:-true}
+
+  # Interactive shell with the workspace sourced.
+  shell:
+    <<: *ros
+    stdin_open: true
+    tty: true
+    command: bash

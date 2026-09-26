@@ -1,6 +1,7 @@
 """Verbatim copy of feature functions from Train_Myo_Signals/mod_sig_emg.py.
 
-Source: https://github.com/Calima94/Train_Myo_Signals (commit 20fca8a), Apache-2.0.
+Source: https://github.com/Calima94/Train_Myo_Signals (commit 20fca8a), published there under
+Apache-2.0 by the same author, relicensed here as MIT (see THIRD_PARTY_NOTICES.md).
 Kept byte-for-byte (except this header and imports) as the golden reference
 for tests/test_features_equivalence.py. Do not edit or reformat.
 """

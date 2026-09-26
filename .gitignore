@@ -5,6 +5,6 @@ __pycache__/
 build/
 install/
 log/
-data/
-models/
+/data/
+/models/
 *.joblib

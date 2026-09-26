@@ -1,0 +1,25 @@
+# Tooling config for the pure-Python checks (ruff + pytest). The ROS 2 packages
+# themselves are built with colcon inside the Docker image.
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = ["tests/legacy_reference"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["mestrado_emg", "mestrado_capture", "legacy_reference"]
+
+[tool.ruff.lint.per-file-ignores]
+# Filter coefficients copied digit-for-digit from the thesis.
+"ros2_ws/src/mestrado_emg/mestrado_emg/features.py" = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["ros2_ws/src/mestrado_emg", "ros2_ws/src/mestrado_capture", "tests"]
+filterwarnings = [
+  "error::FutureWarning",
+  # the verbatim legacy reference uses 4 db7 levels on 50 samples, like the thesis
+  "ignore:Level value of .* is too high:UserWarning",
+]

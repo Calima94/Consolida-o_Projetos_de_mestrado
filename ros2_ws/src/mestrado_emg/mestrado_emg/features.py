@@ -26,6 +26,7 @@ behaviour is kept and pinned by a golden test against the original code.
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import asdict, dataclass, field
 from typing import Literal
 
@@ -38,15 +39,78 @@ from scipy import signal
 # The original comment reads "10 Hz stop / 15 Hz pass, 60 dB".
 LEGACY_SOS_HIGHPASS = np.array(
     [
-        [1, -2, 1, 1, -1.740367670683557577149258577264845371246, 0.93092862335376458382540931779658421874],
-        [1, -2, 1, 1, -1.629360431136253506423372527933679521084, 0.80776668472892854122591188570368103683],
-        [1, -2, 1, 1, -1.535449319165865356140443509502802044153, 0.703572808222718393267314240802079439163],
-        [1, -2, 1, 1, -1.457344522530261921033911676204297691584, 0.616915954050245685102993320469977334142],
-        [1, -2, 1, 1, -1.393730553043875275420759862754493951797, 0.546336595104689237700767989736050367355],
-        [1, -2, 1, 1, -1.343402365227919670331857560086064040661, 0.490497739871769145025837133289314806461],
-        [1, -2, 1, 1, -1.305336827562876278463477319746743887663, 0.448264229402160208071137503793579526246],
-        [1, -2, 1, 1, -1.278726258361997381030050746630877256393, 0.418739945183796424821309756225673481822],
-        [1, -2, 1, 1, -1.262991469218308848709853009495418518782, 0.401282280776567523705722351223812438548],
+        [
+            1,
+            -2,
+            1,
+            1,
+            -1.740367670683557577149258577264845371246,
+            0.93092862335376458382540931779658421874,
+        ],
+        [
+            1,
+            -2,
+            1,
+            1,
+            -1.629360431136253506423372527933679521084,
+            0.80776668472892854122591188570368103683,
+        ],
+        [
+            1,
+            -2,
+            1,
+            1,
+            -1.535449319165865356140443509502802044153,
+            0.703572808222718393267314240802079439163,
+        ],
+        [
+            1,
+            -2,
+            1,
+            1,
+            -1.457344522530261921033911676204297691584,
+            0.616915954050245685102993320469977334142,
+        ],
+        [
+            1,
+            -2,
+            1,
+            1,
+            -1.393730553043875275420759862754493951797,
+            0.546336595104689237700767989736050367355,
+        ],
+        [
+            1,
+            -2,
+            1,
+            1,
+            -1.343402365227919670331857560086064040661,
+            0.490497739871769145025837133289314806461,
+        ],
+        [
+            1,
+            -2,
+            1,
+            1,
+            -1.305336827562876278463477319746743887663,
+            0.448264229402160208071137503793579526246,
+        ],
+        [
+            1,
+            -2,
+            1,
+            1,
+            -1.278726258361997381030050746630877256393,
+            0.418739945183796424821309756225673481822,
+        ],
+        [
+            1,
+            -2,
+            1,
+            1,
+            -1.262991469218308848709853009495418518782,
+            0.401282280776567523705722351223812438548,
+        ],
         [1, -1, 0, 1, -0.628892547371665888711333991523133590817, 0.0],
     ]
 )
@@ -100,6 +164,49 @@ class LegacyFeatureConfig:
             raise ValueError(f"feature must be 'mav' or 'rms', got {self.feature!r}")
         if self.samples_per_window < 1:
             raise ValueError("window_ms is shorter than one sample period")
+
+    @classmethod
+    def for_sensor(
+        cls,
+        fs_hz: float,
+        n_channels: int,
+        highpass_hz: float = 20.0,
+        mains_hz: float = 60.0,
+        **kwargs,
+    ) -> LegacyFeatureConfig:
+        """Same pipeline with IIR stages redesigned for another sensor.
+
+        The legacy SOS coefficients only make sense at 200 Hz (Myo). For any
+        other sampling rate this builds a 4th-order Butterworth high-pass at
+        ``highpass_hz`` and a 2nd-order Butterworth band-stop at
+        ``mains_hz +- 5 Hz`` (skipped when the mains frequency is above
+        Nyquist). This is a **new design**, not the thesis one, so models must
+        be retrained.
+
+        Examples
+        --------
+        >>> cfg = LegacyFeatureConfig.for_sensor(fs_hz=1000.0, n_channels=4)
+        >>> cfg.samples_per_window
+        250
+        """
+        hp = signal.butter(4, highpass_hz, btype="highpass", fs=fs_hz, output="sos")
+        if mains_hz + 5.0 < fs_hz / 2.0:
+            bs = signal.butter(
+                2,
+                [mains_hz - 5.0, mains_hz + 5.0],
+                btype="bandstop",
+                fs=fs_hz,
+                output="sos",
+            )
+        else:
+            bs = np.array([[1.0, 0.0, 0.0, 1.0, 0.0, 0.0]])  # identity section
+        return cls(
+            fs_hz=fs_hz,
+            n_channels=n_channels,
+            sos_highpass=tuple(map(tuple, hp.tolist())),
+            sos_bandstop=tuple(map(tuple, bs.tolist())),
+            **kwargs,
+        )
 
     @property
     def samples_per_window(self) -> int:
@@ -159,7 +266,11 @@ def legacy_wavelet_filter(x: np.ndarray, config: LegacyFeatureConfig) -> np.ndar
     Operates along axis 1 of a ``[n_windows, samples_per_window, n_channels]``
     array. See the module docstring for the reproduced loop quirk.
     """
-    coeffs = pywt.wavedec(x, config.wavelet, level=config.wavelet_levels, axis=1)
+    with warnings.catch_warnings():
+        # 4 levels of db7 on 50 samples exceeds pywt's maximum useful level and
+        # warns about boundary effects; that is the thesis configuration.
+        warnings.filterwarnings("ignore", message="Level value of .* is too high")
+        coeffs = pywt.wavedec(x, config.wavelet, level=config.wavelet_levels, axis=1)
     # Verbatim loop bounds from the original wav_filter(); visits only i = 1.
     for i in range(1, -1, -(config.wavelet_levels + 1)):
         if -i not in config.wavelet_layers:
