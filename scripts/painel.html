@@ -1,0 +1,608 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Painel do projeto</title>
+<meta name="description" content="Os comandos do projeto do mestrado como botões: braço, sistema completo, espelho, captura, treino, análise e testes.">
+<!--
+  Served by scripts/painel.py, which runs the actions. One file, no dependency.
+  Every POST carries X-Painel: 1 (the server refuses it otherwise).
+-->
+<style>
+:root {
+  --bg: #f4f3ef; --surface: #ffffff; --ink: #1c1c1e; --muted: #6c6b70; --line: #e3e1db;
+  --accent: #2563eb; --accent-ink: #ffffff; --ok: #178a43; --warn: #b86a00; --bad: #d42a1d;
+  --code-bg: #f7f6f2; --shadow: 0 1px 2px rgb(0 0 0 / 0.05), 0 4px 16px rgb(0 0 0 / 0.04);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111113; --surface: #1b1b1e; --ink: #ececef; --muted: #9b9aa2; --line: #2d2d32;
+    --accent: #5b8ff9; --accent-ink: #0b0b0c; --ok: #3ccf77; --warn: #f0a638; --bad: #f04a3c;
+    --code-bg: #141416; --shadow: none;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111113; --surface: #1b1b1e; --ink: #ececef; --muted: #9b9aa2; --line: #2d2d32;
+  --accent: #5b8ff9; --accent-ink: #0b0b0c; --ok: #3ccf77; --warn: #f0a638; --bad: #f04a3c;
+  --code-bg: #141416; --shadow: none;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+button, select, input { font: inherit; color: inherit; }
+a { color: var(--accent); }
+
+header {
+  position: sticky; top: 0; z-index: 10;
+  display: flex; align-items: center; flex-wrap: wrap; gap: 10px 16px;
+  padding: 10px 16px; padding-top: max(10px, env(safe-area-inset-top));
+  background: color-mix(in srgb, var(--bg) 90%, transparent); backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--line);
+}
+.titles { flex: 1; min-width: 200px; }
+h1 { font-size: 17px; margin: 0; font-weight: 650; letter-spacing: -0.01em; }
+.sub { color: var(--muted); font-size: 13px; }
+.docker { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
+.docker[data-s="ok"] .dot { background: var(--ok); }
+.docker[data-s="off"] .dot { background: var(--bad); }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  min-height: 40px; padding: 0 14px; border-radius: 10px;
+  border: 1px solid var(--line); background: var(--surface); cursor: pointer;
+  text-decoration: none; white-space: nowrap;
+}
+.btn:hover:not(:disabled) { border-color: color-mix(in srgb, var(--ink) 30%, var(--line)); }
+.btn:disabled, a.btn[aria-disabled="true"] { opacity: 0.45; cursor: not-allowed; }
+a.btn[aria-disabled="true"] { pointer-events: none; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.btn.stop { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 45%, var(--line)); }
+.btn.small { min-height: 32px; padding: 0 10px; font-size: 13px; }
+.btn:focus-visible, select:focus-visible, input:focus-visible, summary:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+.faixa { max-width: 1320px; margin: 12px auto 0; padding: 0 16px; }
+.aviso { padding: 10px 14px; border-radius: 10px; font-size: 14px; }
+.aviso.rodando { background: color-mix(in srgb, var(--ok) 10%, var(--surface)); border: 1px solid color-mix(in srgb, var(--ok) 30%, transparent); }
+.aviso.erro { background: color-mix(in srgb, var(--bad) 10%, var(--surface)); border: 1px solid color-mix(in srgb, var(--bad) 35%, transparent); color: var(--bad); }
+
+main {
+  display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr);
+  max-width: 1320px; margin: 0 auto; padding: 16px;
+}
+@media (min-width: 1100px) {
+  main { grid-template-columns: minmax(0, 1.55fr) minmax(360px, 1fr); align-items: start; }
+  .saida { position: sticky; top: 76px; }
+}
+h2 { font-size: 13px; font-weight: 650; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 8px 2px 10px; }
+h2:first-child { margin-top: 0; }
+.grade { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); align-items: start; margin-bottom: 18px; }
+
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); }
+.acao { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+.card-head { display: flex; align-items: baseline; gap: 10px; }
+h3 { margin: 0; font-size: 16px; font-weight: 650; flex: 1; }
+.badge { font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+.badge[data-s="rodando"] { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 45%, transparent); }
+.badge[data-s="iniciando"] { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 45%, transparent); }
+.badge[data-s="falhou"] { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 45%, transparent); }
+.badge[data-s="ok"] { color: var(--ok); }
+.desc { margin: 0; color: var(--muted); font-size: 14px; }
+.botoes { display: flex; flex-wrap: wrap; gap: 8px; }
+.msg { font-size: 13px; color: var(--bad); }
+.msg:empty { display: none; }
+.dica { font-size: 13px; color: var(--muted); }
+.dica:empty { display: none; }
+
+details.opcoes { border-top: 1px solid var(--line); padding-top: 8px; }
+summary { cursor: pointer; color: var(--muted); font-size: 13px; width: fit-content; }
+.campos { display: grid; gap: 10px; margin-top: 10px; }
+.campo { display: grid; gap: 3px; font-size: 14px; }
+.campo > span:first-child { color: var(--muted); font-size: 12.5px; }
+.campo select, .campo input[type=number], .campo input[type=text] {
+  width: 100%; min-height: 36px; padding: 4px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg);
+}
+.check { display: flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; }
+.check input { width: 18px; height: 18px; accent-color: var(--accent); }
+.par { display: flex; gap: 8px; }
+[hidden] { display: none !important; }
+
+.manut { padding: 14px 16px; display: grid; gap: 12px; }
+.manut .linha { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.manut .rot { color: var(--muted); font-size: 13px; min-width: 76px; }
+
+.saida { display: flex; flex-direction: column; min-height: 320px; max-height: calc(100vh - 100px); }
+.saida-head { display: flex; align-items: center; gap: 10px; padding: 12px 14px 8px; }
+.saida-head h2 { margin: 0; flex: none; }
+.saida-head select { flex: 1; min-width: 0; min-height: 34px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); padding: 2px 6px; }
+.saida-status { padding: 0 14px 8px; font-size: 13px; color: var(--muted); }
+pre#log {
+  flex: 1; margin: 0 14px; padding: 10px 12px; min-height: 220px; overflow: auto;
+  background: var(--code-bg); border: 1px solid var(--line); border-radius: 10px;
+  font: 12.5px/1.45 ui-monospace, "Cascadia Mono", Consolas, monospace; white-space: pre-wrap; word-break: break-word;
+}
+pre#log .cmd { color: var(--accent); }
+.saida-foot { display: flex; align-items: center; gap: 12px; padding: 10px 14px 12px; font-size: 13px; color: var(--muted); }
+.saida-foot .check { font-size: 13px; margin-left: auto; }
+
+@media (max-width: 560px) {
+  .grade { grid-template-columns: minmax(0, 1fr); }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="titles">
+    <h1>Painel do projeto</h1>
+    <div class="sub">Consolidação do mestrado · sEMG → classificador → braço</div>
+  </div>
+  <div class="docker" id="docker" data-s="?"><span class="dot"></span><span id="dockerTxt">verificando o Docker…</span></div>
+  <button class="btn small" id="abrirDocker" data-acao="abrir_docker" hidden>Abrir o Docker Desktop</button>
+  <button class="btn stop" id="pararTudo" data-acao="parar_tudo" title="Para todos os containers do projeto (scripts/stop.sh)">Parar tudo</button>
+</header>
+
+<div class="faixa" id="faixaRodando" hidden><div class="aviso rodando" id="rodandoTxt"></div></div>
+<div class="faixa" id="faixaErro" hidden><div class="aviso erro" id="erroTxt"></div></div>
+
+<main>
+  <div>
+    <h2>Braço e simulação</h2>
+    <div class="grade">
+      <section class="card acao" data-card="braco">
+        <div class="card-head"><h3>Braço pelo navegador</h3><span class="badge" data-badge>parado</span></div>
+        <p class="desc">O braço no Gazebo, pilotado por uma página: setas, deslizadores, comando × real e parada de emergência.</p>
+        <div class="botoes">
+          <button class="btn primary" data-iniciar>Iniciar</button>
+          <a class="btn primary" data-abrir href="http://localhost:8080" target="_blank" rel="noopener" hidden>Abrir o controle ↗</a>
+          <button class="btn" data-ver hidden>Ver a saída</button>
+          <button class="btn stop" data-parar hidden>Parar</button>
+        </div>
+        <div class="dica" data-dica></div>
+        <details class="opcoes"><summary>Opções</summary><div class="campos">
+          <label class="check" data-precisa-janela><input type="checkbox" name="janela"> Mostrar também a janela do Gazebo</label>
+        </div></details>
+        <div class="msg" data-msg></div>
+      </section>
+
+      <section class="card acao" data-card="sistema">
+        <div class="card-head"><h3>Sistema completo</h3><span class="badge" data-badge>parado</span></div>
+        <p class="desc">O mestrado de ponta a ponta: sEMG → classificador → braço. O braço alterna conforme o classificador reconhece cada trecho.</p>
+        <div class="botoes">
+          <button class="btn primary" data-iniciar>Iniciar</button>
+          <a class="btn primary" data-abrir href="http://localhost:8080" target="_blank" rel="noopener" hidden>Acompanhar pela página ↗</a>
+          <button class="btn" data-ver hidden>Ver a saída</button>
+          <button class="btn stop" data-parar hidden>Parar</button>
+        </div>
+        <div class="dica" data-dica></div>
+        <details class="opcoes"><summary>Opções</summary><div class="campos">
+          <label class="campo"><span>Fonte do sEMG</span><select name="fonte">
+            <option value="gravacao">Gravação do mestrado (sem hardware)</option>
+            <option value="myo">Faixa Myo (precisa do dongle)</option></select></label>
+          <label class="campo" data-so-gravacao><span>Gravação</span><select name="csv" data-lista="csvs"></select></label>
+          <label class="campo"><span>Classificador</span><select name="modelo" data-lista="modelos"></select></label>
+          <label class="check"><input type="checkbox" name="pagina" checked> Acompanhar pela página do braço</label>
+          <label class="check" data-precisa-janela><input type="checkbox" name="janela"> Janela do Gazebo</label>
+        </div></details>
+        <div class="msg" data-msg></div>
+      </section>
+
+      <section class="card acao" data-card="espelho">
+        <div class="card-head"><h3>Modo espelho</h3><span class="badge" data-badge>parado</span></div>
+        <p class="desc">O braço do Gazebo copia o cotovelo visto num vídeo, por visão computacional. Sem sEMG.</p>
+        <div class="botoes">
+          <button class="btn primary" data-iniciar>Iniciar</button>
+          <a class="btn primary" data-abrir href="http://localhost:8080" target="_blank" rel="noopener" hidden>Ver na página ↗</a>
+          <button class="btn" data-ver hidden>Ver a saída</button>
+          <button class="btn stop" data-parar hidden>Parar</button>
+        </div>
+        <div class="dica" data-dica></div>
+        <details class="opcoes"><summary>Opções</summary><div class="campos">
+          <label class="campo"><span>Vídeo</span><select name="video" data-lista="videos"></select></label>
+          <label class="check"><input type="checkbox" name="espelhar"> Espelhar a imagem (o vídeo do mestrado já está espelhado)</label>
+          <label class="campo"><span>Braço</span><select name="lado"><option value="right">direito</option><option value="left">esquerdo</option></select></label>
+          <label class="check" data-precisa-janela><input type="checkbox" name="janela" checked> Janelas da câmera e do Gazebo</label>
+          <label class="check"><input type="checkbox" name="pagina"> Ver também na página do braço</label>
+        </div></details>
+        <div class="msg" data-msg></div>
+      </section>
+    </div>
+
+    <h2>Dados e resultados</h2>
+    <div class="grade">
+      <section class="card acao" data-card="captura">
+        <div class="card-head"><h3>Captura de dados</h3><span class="badge" data-badge hidden></span></div>
+        <p class="desc">Grava sEMG rotulado pelo ângulo do cotovelo medido pela câmera. Termina sozinha quando as categorias enchem.</p>
+        <div class="botoes">
+          <button class="btn primary" data-iniciar>Iniciar a captura</button>
+          <button class="btn stop" data-parar hidden>Parar e salvar</button>
+        </div>
+        <div class="dica" data-dica></div>
+        <details class="opcoes"><summary>Opções</summary><div class="campos">
+          <label class="campo"><span>Fonte do sEMG</span><select name="fonte">
+            <option value="gravacao">Gravação do mestrado (demonstração)</option>
+            <option value="myo">Faixa Myo (precisa do dongle)</option></select></label>
+          <label class="campo" data-so-gravacao><span>Gravação</span><select name="csv" data-lista="csvs"></select></label>
+          <label class="campo"><span>Vídeo</span><select name="video" data-lista="videos"></select></label>
+          <label class="check"><input type="checkbox" name="espelhar"> Espelhar a imagem</label>
+          <label class="campo"><span>Braço</span><select name="lado"><option value="right">direito</option><option value="left">esquerdo</option></select></label>
+          <label class="campo"><span>Categorias</span><select name="categorias">
+            <option value="2">2 (170° e 90°)</option><option value="3">3 (+ 60°)</option><option value="4">4 (+ 45°)</option></select></label>
+          <label class="campo"><span>Tolerância (°)</span><input type="number" name="tolerancia" value="10" min="1" max="45" step="1"></label>
+          <label class="campo"><span>Amostras/categoria</span><input type="number" name="amostras" value="1000" min="10" max="100000" step="10"></label>
+          <label class="check"><input type="checkbox" name="continuo"> Gravar também fora das categorias (para regressão contínua)</label>
+          <label class="check" data-precisa-janela><input type="checkbox" name="janela" checked> Janela da câmera</label>
+        </div></details>
+        <div class="msg" data-msg></div>
+      </section>
+
+      <section class="card acao" data-card="treino">
+        <div class="card-head"><h3>Treinar os classificadores</h3><span class="badge" data-badge hidden></span></div>
+        <p class="desc">Os 5 classificadores do mestrado a partir de uma gravação. Os modelos vão para <code>models/</code>.</p>
+        <div class="botoes"><button class="btn primary" data-iniciar>Treinar</button></div>
+        <details class="opcoes"><summary>Opções</summary><div class="campos">
+          <label class="campo"><span>Gravação</span><select name="csv" data-lista="csvs"></select></label>
+          <label class="campo"><span>Feature</span><select name="feature"><option>mav</option><option>rms</option></select></label>
+          <label class="campo"><span>Divisão</span><select name="divisao"><option>temporal</option><option>legacy</option></select></label>
+          <label class="campo"><span>Semente</span><input type="number" name="semente" value="42" min="0" step="1"></label>
+        </div></details>
+        <div class="msg" data-msg></div>
+      </section>
+
+      <section class="card acao" data-card="analise">
+        <div class="card-head"><h3>Analisar os resultados</h3><span class="badge" data-badge hidden></span></div>
+        <p class="desc">Figuras (acurácia, confusão, ROC, sinal, features), validação cruzada e resumo, em <code>models/analise/</code>.</p>
+        <div class="botoes">
+          <button class="btn primary" data-iniciar>Analisar</button>
+          <button class="btn" data-figuras>Abrir as figuras</button>
+        </div>
+        <details class="opcoes"><summary>Opções</summary><div class="campos">
+          <label class="campo"><span>Gravação</span><select name="csv" data-lista="csvs"></select></label>
+          <label class="campo"><span>Feature</span><select name="feature"><option>mav</option><option>rms</option></select></label>
+          <label class="campo"><span>Divisão</span><select name="divisao"><option>temporal</option><option>legacy</option></select></label>
+          <label class="campo"><span>Semente</span><input type="number" name="semente" value="42" min="0" step="1"></label>
+          <label class="campo"><span>Partições (CV)</span><input type="number" name="particoes" value="5" min="2" max="20" step="1"></label>
+          <label class="campo"><span>Canais no gráfico</span><span class="par"><select name="canal_a"></select><select name="canal_b"></select></span></label>
+          <label class="campo"><span>Abrir as figuras de</span><select name="pasta" data-lista="analises"></select></label>
+        </div></details>
+        <div class="msg" data-msg></div>
+      </section>
+    </div>
+
+    <h2>Manutenção</h2>
+    <section class="card manut" data-card="manutencao">
+      <div class="linha"><span class="rot">Testes</span>
+        <button class="btn" data-acao="testes_rapido" title="compose, ruff e testes unitários">Rápido · ~30 s</button>
+        <button class="btn" data-acao="testes_completo" title="o mesmo que o CI do GitHub: imagem, testes e ponta a ponta">Completo · ~2 min</button>
+      </div>
+      <div class="linha"><span class="rot">Docker</span>
+        <button class="btn" data-acao="verificar">Verificar o Docker</button>
+        <button class="btn" data-acao="imagem" title="depois de mudar o código">Construir a imagem</button>
+      </div>
+      <div class="linha"><span class="rot">Dados</span>
+        <button class="btn" data-acao="dados">Baixar os dados do mestrado</button>
+      </div>
+      <div class="msg" data-msg></div>
+    </section>
+  </div>
+
+  <aside class="card saida" aria-label="Saída">
+    <div class="saida-head"><h2>Saída</h2><select id="tarefaSel" aria-label="Tarefa"><option value="">nada executado ainda</option></select></div>
+    <div class="saida-status" id="saidaStatus">Cada botão mostra aqui o comando que roda e o que ele imprime.</div>
+    <pre id="log"></pre>
+    <div class="saida-foot">
+      <button class="btn small stop" id="pararTarefa" hidden>Parar esta tarefa</button>
+      <label class="check"><input type="checkbox" id="rolar" checked> acompanhar o fim</label>
+    </div>
+  </aside>
+</main>
+
+<script>
+"use strict";
+
+const SERVICOS = {  // service cards: the container they start, and their stop/view actions
+  braco: { servico: "braco", parar: "parar_braco", ver: "ver_braco", pagina: () => true },
+  sistema: { servico: "sim", parar: "parar_sistema", ver: "ver_sistema", pagina: (p) => p.pagina },
+  espelho: { servico: "espelho", parar: "parar_espelho", ver: "ver_espelho", pagina: (p) => p.pagina },
+};
+const PRINCIPAIS = ["braco", "sim", "espelho", "captura", "shell"];
+const NOME_SERVICO = { braco: "o braço", sim: "o sistema completo", espelho: "o modo espelho", captura: "a captura", shell: "um terminal do projeto" };
+const CLASSIFICADOR = { knn: "k-NN", lda: "LDA", gnb: "Gauss Naive Bayes", lin_svm: "SVM linear", tree: "Árvore de decisão" };
+const VIDEO_ESPELHADO = "test_2_05.avi";
+
+let estado = null;
+let selecionada = null;   // task id shown in the output panel
+let desde = 0;
+let lendo = false;
+
+// ------------------------------------------------------------ helpers
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+const guardar = (k, v) => { try { localStorage.setItem("painel:" + k, JSON.stringify(v)); } catch {} };
+const lembrar = (k) => { try { const v = localStorage.getItem("painel:" + k); return v == null ? undefined : JSON.parse(v); } catch { return undefined; } };
+const hora = (t) => new Date(t * 1000).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+
+async function post(url, corpo) {
+  const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json", "X-Painel": "1" }, body: JSON.stringify(corpo) });
+  const dados = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(dados.erro || "erro " + r.status);
+  return dados;
+}
+
+function params(card) {
+  const p = {};
+  for (const el of $$("[name]", card)) {
+    if (el.closest("[hidden]")) continue;
+    p[el.name] = el.type === "checkbox" ? el.checked : el.value;
+  }
+  if ("canal_a" in p) { p.canais = `${p.canal_a} ${p.canal_b}`; delete p.canal_a; delete p.canal_b; }
+  return p;
+}
+
+function mensagem(card, texto) { const m = $("[data-msg]", card); if (m) m.textContent = texto || ""; }
+
+async function executar(acao, p, card) {
+  if (card) mensagem(card, "");
+  try {
+    const { tarefa } = await post("/api/acao", { acao, params: p || {} });
+    selecionar(tarefa);
+    atualizar();
+  } catch (e) {
+    if (card) mensagem(card, e.message); else mostrarErro(e.message);
+  }
+}
+
+function mostrarErro(t) {
+  $("#erroTxt").textContent = t;
+  $("#faixaErro").hidden = !t;
+  if (t) setTimeout(() => { if ($("#erroTxt").textContent === t) mostrarErro(""); }, 8000);
+}
+
+// ------------------------------------------------------------ options (lists from the server, remembered choices)
+function rotuloModelo(nome) {
+  const m = /^(knn|lda|gnb|lin_svm|tree)_(.+)_(mav|rms)_(temporal|legacy)_latest\.joblib$/.exec(nome);
+  return m ? `${CLASSIFICADOR[m[1]]} · ${m[2]} · ${m[3]} ${m[4]}` : nome;
+}
+const PADRAO_LISTA = { csvs: "6_10_20220.csv", modelos: "knn_6-10-20220_mav_temporal_latest.joblib", videos: VIDEO_ESPELHADO };
+
+function preencherListas() {
+  const opc = estado.opcoes;
+  for (const sel of $$("select[data-lista]")) {
+    const lista = sel.dataset.lista;
+    let itens = opc[lista] || [];
+    if (lista === "videos" && !estado.ambiente.wsl) itens = [...itens, "webcam"];
+    const chave = sel.closest("[data-card]").dataset.card + ":" + sel.name;
+    const antes = sel.value || lembrar(chave);
+    const assinatura = itens.join("|");
+    if (sel.dataset.assinatura === assinatura) continue;
+    sel.dataset.assinatura = assinatura;
+    sel.replaceChildren(...itens.map((v) => {
+      const o = document.createElement("option");
+      o.value = v;
+      o.textContent = lista === "modelos" ? rotuloModelo(v) : v === "webcam" ? "Webcam (/dev/video0)" : v;
+      return o;
+    }));
+    if (!itens.length) { const o = document.createElement("option"); o.textContent = "(nenhum ainda)"; o.value = ""; sel.append(o); }
+    const alvo = [antes, PADRAO_LISTA[lista], itens[itens.length - 1]].find((v) => v && itens.includes(v));
+    if (alvo) sel.value = alvo;
+  }
+}
+
+function prepararCampos() {
+  for (const sel of $$('select[name="canal_a"], select[name="canal_b"]')) {
+    for (let i = 1; i <= 8; i++) { const o = document.createElement("option"); o.value = o.textContent = i; sel.append(o); }
+    sel.value = sel.name === "canal_a" ? "1" : "2";
+  }
+  for (const card of $$("[data-card]")) {
+    const nome = card.dataset.card;
+    for (const el of $$("[name]", card)) {
+      if (el.dataset.lista) { el.addEventListener("change", () => guardar(nome + ":" + el.name, el.value)); continue; }
+      const v = lembrar(nome + ":" + el.name);
+      if (v !== undefined) { if (el.type === "checkbox") el.checked = v; else el.value = v; }
+      el.addEventListener("change", () => guardar(nome + ":" + el.name, el.type === "checkbox" ? el.checked : el.value));
+    }
+    const fonte = $('[name="fonte"]', card);
+    const soGravacao = () => $$("[data-so-gravacao]", card).forEach((el) => (el.hidden = fonte.value !== "gravacao"));
+    if (fonte) { fonte.addEventListener("change", soGravacao); soGravacao(); }
+    const video = $('[name="video"]', card), espelhar = $('[name="espelhar"]', card);
+    if (video && espelhar) video.addEventListener("change", () => { espelhar.checked = video.value !== VIDEO_ESPELHADO; guardar(nome + ":espelhar", espelhar.checked); });
+  }
+}
+
+// ------------------------------------------------------------ rendering
+function tarefaDe(acoes) {  // most recent task among these actions
+  return (estado.tarefas || []).filter((t) => acoes.includes(t.acao)).sort((a, b) => b.id - a.id)[0];
+}
+
+function render() {
+  const e = estado, rodando = e.rodando || [];
+  const servicos = new Set(rodando.map((c) => c.servico));
+  const principais = PRINCIPAIS.filter((s) => servicos.has(s));
+  const dockerOk = e.docker.ok;
+
+  const d = $("#docker");
+  d.dataset.s = dockerOk ? "ok" : "off";
+  $("#dockerTxt").textContent = dockerOk
+    ? `Docker pronto (${e.docker.desktop ? "Docker Desktop " : ""}${e.docker.versao})`
+    : "Docker fechado ou sem resposta";
+  $("#abrirDocker").hidden = dockerOk || !e.ambiente.wsl;
+  $("#pararTudo").disabled = !rodando.length;
+
+  $("#faixaRodando").hidden = !rodando.length;
+  $("#rodandoTxt").textContent = rodando.length ? "Rodando agora: " + rodando.map((c) => c.servico + (c.servico === "web" ? " (página do braço)" : "")).join(", ") : "";
+
+  for (const el of $$("[data-precisa-janela]")) el.hidden = !e.ambiente.janela;
+
+  // service cards
+  for (const [card, s] of Object.entries(SERVICOS)) {
+    const el = $(`[data-card="${card}"]`);
+    const ativo = servicos.has(s.servico);
+    const t = tarefaDe([card]);
+    const iniciando = !ativo && t && t.rodando;
+    const outro = principais.find((x) => x !== s.servico);
+    const badge = $("[data-badge]", el);
+    badge.dataset.s = ativo ? "rodando" : iniciando ? "iniciando" : t && t.codigo ? "falhou" : "";
+    badge.textContent = ativo ? "rodando" : iniciando ? "iniciando…" : t && t.codigo ? "falhou" : "parado";
+    const ini = $("[data-iniciar]", el);
+    ini.hidden = ativo;
+    ini.disabled = !dockerOk || iniciando || Boolean(outro);
+    $("[data-parar]", el).hidden = !ativo;
+    const seguindo = tarefaDe([card, s.ver]);
+    $("[data-ver]", el).hidden = !ativo || Boolean(seguindo && seguindo.rodando);
+    const abrir = $("[data-abrir]", el);
+    abrir.hidden = !(ativo && servicos.has("web"));
+    abrir.setAttribute("aria-disabled", String(!e.pagina_braco));
+    abrir.textContent = e.pagina_braco ? abrir.dataset.rotulo : "Preparando a página…";
+    const dica = $("[data-dica]", el);
+    dica.textContent = !ativo && outro ? `Pare ${NOME_SERVICO[outro]} antes: só um de cada vez.`
+      : iniciando ? "Subindo os containers (alguns segundos)…" : "";
+  }
+
+  // one-off tasks
+  for (const card of ["captura", "treino", "analise"]) {
+    const el = $(`[data-card="${card}"]`);
+    const t = tarefaDe([card]);
+    const ocupado = t && t.rodando;
+    const badge = $("[data-badge]", el);
+    badge.dataset.s = ocupado ? "rodando" : !t ? "" : t.codigo === 0 ? "ok" : "falhou";
+    badge.hidden = !t;
+    badge.textContent = !t ? "" : ocupado ? "rodando" : t.codigo === 0 ? `concluído ${hora(t.fim)}` : `falhou (código ${t.codigo})`;
+    const ini = $("[data-iniciar]", el);
+    ini.hidden = card === "captura" && ocupado;
+    const outro = card === "captura" && principais.find((x) => x !== "captura");
+    ini.disabled = !dockerOk || ocupado || Boolean(outro);
+    const parar = $("[data-parar]", el);
+    if (parar) parar.hidden = !ocupado;
+    const dica = $("[data-dica]", el);
+    if (dica) dica.textContent = outro ? `Pare ${NOME_SERVICO[outro]} antes: os dois publicam sEMG nos mesmos tópicos.` : "";
+  }
+  $("[data-figuras]").disabled = !(e.opcoes.analises || []).length;
+
+  for (const b of $$("[data-acao]")) {
+    const t = tarefaDe([b.dataset.acao]);
+    const precisa = !["verificar", "dados", "abrir_docker"].includes(b.dataset.acao);
+    b.disabled = (t && t.rodando) || (precisa && !dockerOk) || (b.id === "pararTudo" && !rodando.length);
+  }
+
+  renderTarefas();
+}
+
+function renderTarefas() {
+  const sel = $("#tarefaSel");
+  const tarefas = [...(estado.tarefas || [])].sort((a, b) => b.id - a.id);
+  if (!tarefas.length) return;
+  const assinatura = tarefas.map((t) => `${t.id}${t.rodando}${t.codigo}`).join("|");
+  if (sel.dataset.assinatura !== assinatura) {
+    sel.dataset.assinatura = assinatura;
+    sel.replaceChildren(...tarefas.map((t) => {
+      const o = document.createElement("option");
+      o.value = t.id;
+      const icone = t.rodando ? "●" : t.codigo === 0 ? "✓" : "✗";
+      o.textContent = `${icone} ${t.titulo} · ${hora(t.inicio)}`;
+      return o;
+    }));
+    if (selecionada == null) selecionar(tarefas[0].id);
+    sel.value = selecionada;
+  }
+  const t = tarefas.find((x) => x.id === selecionada);
+  if (t) {
+    const segue = ["braco", "sistema", "espelho", "ver_braco", "ver_sistema", "ver_espelho"].includes(t.acao);
+    $("#pararTarefa").hidden = !t.rodando || segue;
+    $("#saidaStatus").textContent = t.rodando
+      ? (segue ? "Acompanhando os registros. Para parar a simulação, use o botão Parar do cartão." : "Rodando…")
+      : t.codigo === 0 ? `Terminou bem às ${hora(t.fim)}.` : `Terminou com código ${t.codigo} às ${hora(t.fim)}: o motivo costuma estar nas últimas linhas.`;
+    if (t.rodando && !lendo) lerSaida();
+  }
+}
+
+// ------------------------------------------------------------ output panel
+function selecionar(id) {
+  selecionada = Number(id);
+  desde = 0;
+  $("#log").replaceChildren();
+  $("#tarefaSel").value = selecionada;
+  lerSaida();
+}
+
+// One reading loop at a time; it follows `selecionada` if the user switches.
+async function lerSaida() {
+  if (selecionada == null || lendo) return;
+  lendo = true;
+  try {
+    for (;;) {
+      const id = selecionada;
+      const r = await fetch(`/api/saida?tarefa=${id}&desde=${desde}`, { cache: "no-store" });
+      if (id !== selecionada) continue;
+      if (!r.ok) break;
+      const s = await r.json();
+      if (id !== selecionada) continue;
+      desde = s.proximo;
+      const log = $("#log");
+      const frag = document.createDocumentFragment();
+      for (const linha of s.linhas) {
+        const span = document.createElement("span");
+        if (linha.startsWith("$ ")) span.className = "cmd";
+        span.textContent = linha + "\n";
+        frag.append(span);
+      }
+      log.append(frag);
+      while (log.childNodes.length > 5000) log.firstChild.remove();
+      if ($("#rolar").checked) log.scrollTop = log.scrollHeight;
+      if (!s.rodando && id === selecionada) break;
+      await new Promise((ok) => setTimeout(ok, 700));
+    }
+  } catch {
+    // the next status poll reports a panel that stopped answering
+  } finally {
+    lendo = false;
+  }
+}
+
+// ------------------------------------------------------------ wiring
+async function atualizar() {
+  try {
+    const r = await fetch("/api/estado", { cache: "no-store" });
+    estado = await r.json();
+    preencherListas();
+    render();
+    if (!$("#faixaErro").hidden && $("#erroTxt").textContent.startsWith("O painel")) mostrarErro("");
+  } catch {
+    mostrarErro("O painel não responde. A janela do painel foi fechada? Abra de novo o Painel do projeto.");
+  }
+}
+
+prepararCampos();
+for (const [card, s] of Object.entries(SERVICOS)) {
+  const el = $(`[data-card="${card}"]`);
+  const abrir = $("[data-abrir]", el);
+  abrir.dataset.rotulo = abrir.textContent;
+  $("[data-iniciar]", el).addEventListener("click", () => executar(card, params(el), el));
+  $("[data-parar]", el).addEventListener("click", () => executar(s.parar, {}, el));
+  $("[data-ver]", el).addEventListener("click", () => executar(s.ver, {}, el));
+}
+for (const card of ["captura", "treino", "analise"]) {
+  const el = $(`[data-card="${card}"]`);
+  $("[data-iniciar]", el).addEventListener("click", () => executar(card, params(el), el));
+  const parar = $("[data-parar]", el);
+  if (parar) parar.addEventListener("click", () => { const t = tarefaDe([card]); if (t) post("/api/parar_tarefa", { tarefa: t.id }).then(atualizar); });
+}
+$("[data-figuras]").addEventListener("click", (ev) => {
+  const el = ev.target.closest("[data-card]");
+  executar("abrir_figuras", { pasta: $('[name="pasta"]', el).value }, el);
+});
+for (const b of $$("[data-acao]")) {
+  b.addEventListener("click", () => {
+    if (b.dataset.acao === "parar_tudo" && !confirm("Parar todos os containers do projeto?")) return;
+    executar(b.dataset.acao, {}, b.closest("[data-card]"));
+  });
+}
+$("#tarefaSel").addEventListener("change", (ev) => ev.target.value && selecionar(ev.target.value));
+$("#pararTarefa").addEventListener("click", () => post("/api/parar_tarefa", { tarefa: selecionada }).then(atualizar));
+
+atualizar();
+setInterval(atualizar, 2000);
+</script>
+</body>
+</html>
