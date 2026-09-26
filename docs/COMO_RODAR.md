@@ -91,6 +91,14 @@ integração (`/usr/bin/docker`), se o motor responde e se não ficou nenhum
 simulador do projeto rodando. Em caso de problema, diz a causa provável e o
 conserto; só termina com "Tudo certo" (código 0) se tudo passar.
 
+Com o Docker Desktop fechado, o resultado depende de quando o terminal do
+Ubuntu foi aberto. Se ele já estava aberto com o Docker rodando, o comando
+`docker` continua lá e a verificação para em "motor não respondeu" (código 3),
+dizendo se o Docker Desktop está fechado ou ainda subindo. Depois de reiniciar
+o Windows (ou a distro, com `wsl --terminate Ubuntu` no PowerShell, o que fecha
+os terminais do Ubuntu abertos), o comando some e ela mostra a causa provável
+(código 1).
+
 **Todos os comandos daqui para frente são no terminal do Ubuntu (WSL)**, não
 no PowerShell. Trabalhe dentro do Linux (`~`), não em `/mnt/c/...`: é muito
 mais rápido.

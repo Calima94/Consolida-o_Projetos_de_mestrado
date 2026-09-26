@@ -11,7 +11,8 @@
 #   a) running inside WSL (otherwise: this script is for the WSL Ubuntu terminal);
 #   b) `docker` is the WSL-integrated CLI (/usr/bin/docker), not missing and not
 #      the Windows binary reached through WSL interop (/mnt/c/...);
-#   c) the Docker engine answers (`docker info`);
+#   c) the Docker engine answers (`docker info`); if not, says whether Docker
+#      Desktop is closed or still starting;
 #   d) no container of this project is already running (two simulators on the
 #      host network publish on the same topics and mix their readings).
 #
@@ -174,9 +175,37 @@ ok "cliente docker integrado ($docker_path)"
 # c) engine answers
 if ! timeout 20 docker info >/dev/null 2>&1; then
   bad "o motor do Docker não respondeu (docker info)"
+  # Closing Docker Desktop does not remove /usr/bin/docker from an Ubuntu
+  # session opened while it was running, so "closed" usually ends here (exit 3)
+  # rather than in b); the same probe as in b) tells closed from starting.
+  running="$(docker_desktop_running)"
   echo
-  echo "  O Docker Desktop está fechado ou ainda subindo. Abra o Docker Desktop no"
-  echo "  Windows, espere o motor ficar pronto (~10 s) e rode este script de novo."
+  echo "  Diagnóstico (lado Windows): Docker Desktop rodando = ${running}"
+  echo
+  case "$running" in
+    não)
+      cat <<EOF
+  O Docker Desktop está fechado. O comando 'docker' ainda existe nesta sessão
+  do Ubuntu (em geral porque ela foi aberta com o Docker Desktop rodando), mas
+  não há motor para responder.
+    Conserto: abra o Docker Desktop no Windows, espere o motor subir (~10 s) e
+    rode este script de novo. Se o "Start Docker Desktop when you sign in"
+    estiver desligado, isso se repete a cada reinicialização do Windows.
+EOF
+      ;;
+    sim)
+      cat <<EOF
+  O Docker Desktop está aberto, mas o motor ainda não respondeu.
+    Se ele acabou de abrir, espere ~10 s e rode este script de novo.
+    Se continuar assim por mais de um minuto, feche o Docker Desktop (ícone na
+    bandeja do Windows > Quit Docker Desktop), abra de novo e espere o motor.
+EOF
+      ;;
+    *)
+      echo "  O Docker Desktop está fechado ou ainda subindo. Abra o Docker Desktop no"
+      echo "  Windows, espere o motor ficar pronto (~10 s) e rode este script de novo."
+      ;;
+  esac
   exit 3
 fi
 ok "motor do Docker respondendo"
