@@ -6,8 +6,9 @@
 > [Decisões que não devem ser revertidas](#decisões-que-não-devem-ser-revertidas)
 > existe porque cada item dela já custou tempo real.
 >
-> Escrito em 26/09/2026. Atualize-o quando uma decisão mudar — não deixe o
-> documento envelhecer em silêncio.
+> Escrito em 26/09/2026 e atualizado no mesmo dia, com a guia 1 (braço) pronta.
+> Atualize-o quando uma decisão mudar — não deixe o documento envelhecer em
+> silêncio.
 
 ---
 
@@ -23,10 +24,12 @@ Estado **verificado rodando** em Windows 11 + WSL2 + Docker + ROS 2, em 26/09/20
 | Braço no Gazebo | menu, opção 6 | janela abre, cotovelo obedece comando |
 | Sistema completo | menu, opção 7 | sEMG → classificador → braço, laço fechado |
 | Modo espelho | menu, opção 8 | vídeo → visão computacional → braço |
+| **Interface web — guia 1 (braço)** | `up braco web` → `http://localhost:8080` (COMO_RODAR, passo 5) | navegador → rosbridge → ROS 2 → Gazebo sem janela; comando × real; parada de emergência |
 
 O modelo é `braco_antebraco_garra`: ombro, cotovelo e **garra** (duas juntas).
 Os tópicos de comando já existem: `/arm/{shoulder,elbow,gripper_left,gripper_right}/{cmd_pos,cmd_vel}`.
-O estado real volta em `/joint_states`.
+O estado real volta em `/joint_states`; o alvo que o controlador segue, em
+`/arm/joint_targets`. A parada de emergência é o serviço `/arm/estop`.
 
 **O que NÃO se consegue testar nesta máquina, e por quê:**
 
@@ -78,6 +81,9 @@ Com a interface web, quem desenha o braço é o navegador, a partir dos quatro
 ângulos de `/joint_states`. O componente pesado simplesmente não é desenhado.
 O problema de renderização deixa de existir em vez de ser contornado.
 
+Feito: o serviço `braco` sobe o Gazebo sem janela por padrão (`GUI=false`), e a
+página desenha o braço.
+
 ### 3.3 Desenho do braço em 2D, não 3D
 
 O braço é **planar**: ombro e cotovelo giram no mesmo plano. Uma vista lateral em
@@ -103,6 +109,14 @@ e constante.** Um k-NN ou SVM sobre 8 canais de MAV roda em microssegundos.
 moram no lado sempre ligado. Se a conexão cair, o braço **para** — não repete o
 último comando.
 
+Como isso está hoje: a **parada de emergência mora no `arm_controller`**, não na
+página. A página só chama o serviço `/arm/estop` e mostra o estado que o
+controlador publica. O controlador também não repete comando: ele segue um alvo
+de posição e, quando a página cai, termina o último movimento e para. **Falta o
+watchdog:** hoje ninguém percebe que a conexão caiu. Para o braço físico, o
+controlador deve parar sozinho se a página ficar muda por mais que um tempo
+curto.
+
 **Ganho adicional do Pi:** sendo Linux nativo, ele elimina de uma vez todo o atrito
 de WSL2 — câmera em `/dev/video0`, USB sem `usbipd`, ROS 2 nativo. Cada contorno
 deste repositório para Windows deixa de ser necessário lá.
@@ -111,7 +125,7 @@ deste repositório para Windows deixa de ser necessário lá.
 
 ## 4. As três guias
 
-### Guia 1 — Braço (construir primeiro)
+### Guia 1 — Braço (feita)
 
 A mais fácil e a que prova a arquitetura inteira: navegador → websocket → ROS 2 → Gazebo.
 
@@ -122,6 +136,22 @@ A mais fácil e a que prova a arquitetura inteira: navegador → websocket → R
 
 Mostrar comando contra realidade não é enfeite: é o mesmo sinal que o aprendizado
 vai usar depois, e é o que revela se o controlador está acompanhando.
+
+**Como ficou** (`web/index.html`, serviços `braco` e `web`):
+
+- **Uma página, sem dependências nem build.** Ela fala o protocolo JSON do
+  rosbridge diretamente (umas 65 linhas) em vez de carregar o `roslib.js`,
+  para funcionar num Pi ou num celular sem internet.
+- **"Comando" é o alvo que o controlador está seguindo** (`/arm/joint_targets`),
+  não o que a página mandou. Assim a tela mostra a verdade mesmo quando quem
+  comanda é o classificador ou o terminal, e mesmo durante a parada. O braço
+  real aparece cheio; o comando, como contorno tracejado por cima.
+- **A garra aparece também de frente.** Os dedos deslizam em x, o mesmo eixo de
+  rotação do ombro e do cotovelo, e por isso ficam sobrepostos na vista
+  lateral. A vista lateral continua exata para ombro e cotovelo.
+- **Parada latched:** ao parar, o controlador zera as velocidades e ignora
+  qualquer `cmd_pos` até liberar. Ao liberar, o alvo passa a ser a posição
+  atual, e o braço não retoma um comando de antes da parada.
 
 ### Guia 2 — Treino
 
@@ -241,13 +271,32 @@ Cada item custou tempo real. Não desfaça sem um teste novo que justifique.
    com **uma única transição** no arquivo inteiro, separável por um único limiar de
    amplitude sem sobreposição. Ver `docs/ANALISE_RESULTADOS.md`.
 
+8. **Não instalar pacote ROS compilado pelo apt na imagem.** O packages.ros.org só
+   guarda a última sincronização, e a imagem base ficou uma sincronização atrás
+   (254 de 351 pacotes). O `rosbridge` do apt instalou, mas não carregou:
+   `undefined symbol: has_buffer_fields_builtin_interfaces__msg__Time`. Ele é
+   compilado do código-fonte no Dockerfile, contra o ROS da própria imagem
+   (decisão D19).
+
+9. **No Docker Desktop, a rede `host` não é alcançável do Windows nem do Ubuntu.**
+   Medido com um `http.server` em modo host: sem resposta dos dois lados. Portas
+   publicadas funcionam, mas só a partir de rede bridge, e o mesmo número não
+   pode ser usado dos dois lados ("address already in use"). Por isso existem o
+   repasse `web-portas` e o `compose.desktop.yaml` (decisão D20). Não tente
+   publicar portas no serviço `web` nem tirá-lo do modo host: o DDS precisa dele.
+
 ---
 
 ## 8. Em aberto
 
 - Qual braço comprar — depende do uso pretendido (seção 6).
-- Como o celular alcança a página enquanto o servidor estiver no WSL2: precisa de
-  `netsh portproxy` ou modo de rede espelhada. No Pi o problema não existe.
+- Como o celular alcança a página enquanto o servidor estiver no WSL2. O repasse
+  do `compose.desktop.yaml` já publica as portas no Windows, só que em
+  `127.0.0.1`. Trocar por `0.0.0.0` e liberar o firewall talvez baste, sem
+  `netsh portproxy` (não testado). Antes, a página precisa de alguma
+  autenticação, porque o rosbridge dá controle de todo o grafo ROS. No Pi, o
+  problema de rede não existe.
+- O watchdog de conexão no `arm_controller` (seção 3.4), antes do braço físico.
 - Como medir o ângulo do cotovelo no navegador do celular.
 - Se vale colocar objetos no mundo antes ou depois da guia de treino.
 
@@ -255,7 +304,7 @@ Cada item custou tempo real. Não desfaça sem um teste novo que justifique.
 
 ## 9. Ordem de construção proposta
 
-1. `rosbridge` no compose + guia do braço com vista 2D — prova a arquitetura inteira
+1. ~~`rosbridge` no compose + guia do braço com vista 2D~~ — **feito** (26/09/2026), arquitetura provada
 2. acesso pelo celular na rede local
 3. guia de treino, recuperando a interatividade dos resultados
 4. degrau 1 do aprendizado: regressão do ângulo contínuo
