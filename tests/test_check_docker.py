@@ -32,7 +32,29 @@ esac
 """
 
 
-def _run(tmp_path, docker=None, wsl=True, docker_dir_name="bin"):
+def _fake_windows(bindir, desktop_running, default_distro):
+    """Stand-ins for tasklist.exe and wsl.exe reached through WSL interop."""
+    task = (
+        "Docker Desktop.exe  4242 Console  1  150.000 K"
+        if desktop_running
+        else "INFO: No tasks are running which match the specified criteria."
+    )
+    tasklist = bindir / "tasklist.exe"
+    tasklist.write_text(f"#!/bin/bash\necho '{task}'\n")
+    # wsl.exe prints UTF-16LE with CRLF; the default distro is marked with "*".
+    rows = ["  NAME              STATE           VERSION"]
+    for name in ("Ubuntu", "docker-desktop"):
+        mark = "*" if name == default_distro else " "
+        rows.append(f"{mark} {name:<17} Running         2")
+    listing = bindir / "wsl-list.txt"
+    listing.write_bytes("\r\n".join(rows + [""]).encode("utf-16-le"))
+    wsl = bindir / "wsl.exe"
+    wsl.write_text(f"#!/bin/bash\ncat '{listing}'\n")
+    for exe in (tasklist, wsl):
+        exe.chmod(exe.stat().st_mode | stat.S_IEXEC)
+
+
+def _run(tmp_path, docker=None, wsl=True, docker_dir_name="bin", windows=None, distro=None):
     bindir = tmp_path / "tools"
     bindir.mkdir(exist_ok=True)
     for tool in TOOLS:
@@ -41,6 +63,8 @@ def _run(tmp_path, docker=None, wsl=True, docker_dir_name="bin"):
         dst = bindir / tool
         if not dst.exists():
             dst.symlink_to(src)
+    if windows is not None:
+        _fake_windows(bindir, *windows)
     path = [str(bindir)]
     if docker is not None:
         ddir = tmp_path / docker_dir_name
@@ -52,6 +76,8 @@ def _run(tmp_path, docker=None, wsl=True, docker_dir_name="bin"):
     env = {"PATH": os.pathsep.join(path), "HOME": str(tmp_path)}
     if wsl:
         env["CHECK_DOCKER_FORCE_WSL"] = "1"
+    if distro:
+        env["WSL_DISTRO_NAME"] = distro
     # Stand-in for /mnt/: a docker found under it is the Windows binary via interop.
     env["CHECK_DOCKER_WINDOWS_PREFIX"] = str(tmp_path / "mnt") + "/"
     return subprocess.run(
@@ -74,6 +100,44 @@ def test_missing_cli_explains_causes_a_and_b_in_order(tmp_path):
     assert "wsl --set-default Ubuntu" in out
     assert "costuma não ser isso" in out  # the WSL-integration toggle warning
     assert "rodando = ?" in out  # no interop in the test: unknown, not a guess
+
+
+def test_docker_desktop_closed_points_to_a_and_rules_out_b(tmp_path):
+    # The state measured on Windows 11 with Docker Desktop closed.
+    r = _run(tmp_path, docker=None, windows=(False, "Ubuntu"), distro="Ubuntu")
+    assert r.returncode == 1
+    out = r.stdout
+    assert "rodando = não; distro padrão do WSL = Ubuntu" in out
+    assert "Causa provável: A" in out
+    assert "Causa B descartada: a distro padrão do WSL já é Ubuntu" in out
+    assert "wsl --set-default" not in out
+
+
+def test_default_distro_docker_desktop_points_to_b(tmp_path):
+    r = _run(tmp_path, docker=None, windows=(True, "docker-desktop"), distro="Ubuntu")
+    assert r.returncode == 1
+    out = r.stdout
+    assert "Causa A descartada: o Docker Desktop está rodando" in out
+    assert "Causa provável: B" in out
+    assert "wsl --set-default Ubuntu" in out
+    assert "costuma não ser isso" in out
+
+
+def test_both_causes_likely_are_shown_a_first(tmp_path):
+    r = _run(tmp_path, docker=None, windows=(False, "docker-desktop"), distro="Ubuntu")
+    assert r.returncode == 1
+    out = r.stdout
+    assert out.index("Causa provável: A") < out.index("Causa provável: B")
+    assert "descartada" not in out
+
+
+def test_neither_cause_then_the_integration_toggle_is_the_suspect(tmp_path):
+    r = _run(tmp_path, docker=None, windows=(True, "Ubuntu"), distro="Ubuntu")
+    assert r.returncode == 1
+    out = r.stdout
+    assert "Nem a causa A nem a B" in out
+    assert "WSL integration, ligue a chave da distro Ubuntu" in out
+    assert "costuma não ser isso" not in out
 
 
 def test_windows_cli_through_interop_is_not_integration(tmp_path):
