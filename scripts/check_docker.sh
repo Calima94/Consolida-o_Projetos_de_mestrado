@@ -11,7 +11,8 @@
 #   a) running inside WSL (otherwise: this script is for the WSL Ubuntu terminal);
 #   b) `docker` is the WSL-integrated CLI (/usr/bin/docker), not missing and not
 #      the Windows binary reached through WSL interop (/mnt/c/...);
-#   c) the Docker engine answers (`docker info`);
+#   c) the Docker engine answers (`docker info`); if not, says whether Docker
+#      Desktop is closed or still starting;
 #   d) no container of this project is already running (two simulators on the
 #      host network publish on the same topics and mix their readings).
 #
@@ -174,9 +175,39 @@ ok "cliente docker integrado ($docker_path)"
 # c) engine answers
 if ! timeout 20 docker info >/dev/null 2>&1; then
   bad "o motor do Docker não respondeu (docker info)"
+  # Rare on Windows. Measured on Windows 11 + Docker Desktop 4.92: closing
+  # Docker Desktop removes /usr/bin/docker at once, even with the Ubuntu session
+  # alive, so "closed" ends in b) (exit 1); on start-up the CLI and the engine
+  # come up together (sampled every 1 s: exit 1, then 0, never 3). Exit 3 was
+  # seen once, right after `docker desktop stop`: a narrow race while it shuts
+  # down. Do not spend time trying to reproduce it; the tests cover this branch.
+  # The same probe as in b) still tells closed from starting if it happens.
+  running="$(docker_desktop_running)"
   echo
-  echo "  O Docker Desktop está fechado ou ainda subindo. Abra o Docker Desktop no"
-  echo "  Windows, espere o motor ficar pronto (~10 s) e rode este script de novo."
+  echo "  Diagnóstico (lado Windows): Docker Desktop rodando = ${running}"
+  echo
+  case "$running" in
+    não)
+      cat <<EOF
+  O Docker Desktop está fechado (ou acabou de fechar) e o motor não responde.
+    Conserto: abra o Docker Desktop no Windows, espere o motor subir (~10 s) e
+    rode este script de novo. Se o "Start Docker Desktop when you sign in"
+    estiver desligado, isso se repete a cada reinicialização do Windows.
+EOF
+      ;;
+    sim)
+      cat <<EOF
+  O Docker Desktop está aberto, mas o motor ainda não respondeu.
+    Se ele acabou de abrir, espere ~10 s e rode este script de novo.
+    Se continuar assim por mais de um minuto, feche o Docker Desktop (ícone na
+    bandeja do Windows > Quit Docker Desktop), abra de novo e espere o motor.
+EOF
+      ;;
+    *)
+      echo "  O Docker Desktop está fechado ou ainda subindo. Abra o Docker Desktop no"
+      echo "  Windows, espere o motor ficar pronto (~10 s) e rode este script de novo."
+      ;;
+  esac
   exit 3
 fi
 ok "motor do Docker respondendo"

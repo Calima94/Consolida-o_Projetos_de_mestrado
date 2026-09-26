@@ -91,6 +91,14 @@ integração (`/usr/bin/docker`), se o motor responde e se não ficou nenhum
 simulador do projeto rodando. Em caso de problema, diz a causa provável e o
 conserto; só termina com "Tudo certo" (código 0) se tudo passar.
 
+O que esperar (medido no Windows 11 com o Docker Desktop 4.92): ao fechar o
+Docker Desktop, ele retira o comando `docker` do Ubuntu na hora, mesmo com o
+terminal aberto, e a verificação mostra a causa provável A (código 1). Logo
+depois de abrir o Docker Desktop, enquanto a integração não chega, ela mostra
+"Nem a causa A nem a B" e manda esperar ~10 s; o comando e o motor ficam
+prontos praticamente juntos (código 0). O código 3, "motor não respondeu", é
+raro: só apareceu uma vez, logo depois de mandar o Docker Desktop parar.
+
 **Todos os comandos daqui para frente são no terminal do Ubuntu (WSL)**, não
 no PowerShell. Trabalhe dentro do Linux (`~`), não em `/mnt/c/...`: é muito
 mais rápido.

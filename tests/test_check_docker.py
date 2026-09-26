@@ -152,6 +152,29 @@ def test_engine_down(tmp_path):
     r = _run(tmp_path, docker=_fake_docker(info_ok=False))
     assert r.returncode == 3
     assert "motor do Docker não respondeu" in r.stdout
+    assert "rodando = ?" in r.stdout
+    assert "fechado ou ainda subindo" in r.stdout  # no diagnosis: both, as before
+
+
+def test_engine_down_with_docker_desktop_closed(tmp_path):
+    # Rare race: seen once on Windows right after `docker desktop stop`, while
+    # /usr/bin/docker was still there; normally a closed Docker Desktop ends in b).
+    r = _run(tmp_path, docker=_fake_docker(info_ok=False), windows=(False, "Ubuntu"))
+    assert r.returncode == 3
+    out = r.stdout
+    assert "rodando = não" in out
+    assert "O Docker Desktop está fechado (ou acabou de fechar)" in out
+    assert "abra o Docker Desktop" in out
+    assert "ainda subindo" not in out
+
+
+def test_engine_down_with_docker_desktop_starting(tmp_path):
+    r = _run(tmp_path, docker=_fake_docker(info_ok=False), windows=(True, "Ubuntu"))
+    assert r.returncode == 3
+    out = r.stdout
+    assert "rodando = sim" in out
+    assert "aberto, mas o motor ainda não respondeu" in out
+    assert "Quit Docker Desktop" in out
 
 
 def test_project_container_running_blocks_with_two_sim_warning(tmp_path):
