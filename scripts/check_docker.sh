@@ -175,9 +175,13 @@ ok "cliente docker integrado ($docker_path)"
 # c) engine answers
 if ! timeout 20 docker info >/dev/null 2>&1; then
   bad "o motor do Docker não respondeu (docker info)"
-  # Closing Docker Desktop does not remove /usr/bin/docker from an Ubuntu
-  # session opened while it was running, so "closed" usually ends here (exit 3)
-  # rather than in b); the same probe as in b) tells closed from starting.
+  # Rare on Windows. Measured on Windows 11 + Docker Desktop 4.92: closing
+  # Docker Desktop removes /usr/bin/docker at once, even with the Ubuntu session
+  # alive, so "closed" ends in b) (exit 1); on start-up the CLI and the engine
+  # come up together (sampled every 1 s: exit 1, then 0, never 3). Exit 3 was
+  # seen once, right after `docker desktop stop`: a narrow race while it shuts
+  # down. Do not spend time trying to reproduce it; the tests cover this branch.
+  # The same probe as in b) still tells closed from starting if it happens.
   running="$(docker_desktop_running)"
   echo
   echo "  Diagnóstico (lado Windows): Docker Desktop rodando = ${running}"
@@ -185,9 +189,7 @@ if ! timeout 20 docker info >/dev/null 2>&1; then
   case "$running" in
     não)
       cat <<EOF
-  O Docker Desktop está fechado. O comando 'docker' ainda existe nesta sessão
-  do Ubuntu (em geral porque ela foi aberta com o Docker Desktop rodando), mas
-  não há motor para responder.
+  O Docker Desktop está fechado (ou acabou de fechar) e o motor não responde.
     Conserto: abra o Docker Desktop no Windows, espere o motor subir (~10 s) e
     rode este script de novo. Se o "Start Docker Desktop when you sign in"
     estiver desligado, isso se repete a cada reinicialização do Windows.
