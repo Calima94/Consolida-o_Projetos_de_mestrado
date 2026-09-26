@@ -134,15 +134,20 @@ export JANELA=docker/compose.gui.yaml
 
 ```bash
 cd ~
-git clone -b claude/consolidacao-mestrado-pxdelq \
-  https://github.com/Calima94/Consolida-o_Projetos_de_mestrado.git
+git clone https://github.com/Calima94/Consolida-o_Projetos_de_mestrado.git
 cd Consolida-o_Projetos_de_mestrado
 ```
 
 Se o repositório for privado, o `git clone` pede autenticação do GitHub (use um
 [token pessoal](https://docs.github.com/pt/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens)
-como senha). Depois do merge na `main`, o `-b claude/...` deixa de ser
-necessário.
+como senha).
+
+Se você já tinha clonado antes com `-b claude/consolidacao-mestrado-pxdelq`,
+passe para a `main` (a branch principal) e atualize:
+
+```bash
+git checkout main && git pull
+```
 
 ### 2. Baixar os dados do mestrado
 
