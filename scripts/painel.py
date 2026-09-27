@@ -27,6 +27,7 @@ Host header must be this machine (no DNS rebinding).
 from __future__ import annotations
 
 import argparse
+import hashlib
 import itertools
 import json
 import os
@@ -349,24 +350,71 @@ def _treino_args(p: dict, opc: dict) -> tuple[str, str, str, int]:
     )
 
 
+# The wavelets PyWavelets knows by these names (the page offers haar, db, sym, coif).
+WAVELET = re.compile(
+    r"haar|dmey|db([1-9]|[1-3]\d)|sym([2-9]|1\d|20)|coif([1-9]|1[0-7])"
+    r"|(bior|rbio)(1\.[135]|2\.[2468]|3\.[13579]|4\.4|5\.5|6\.8)"
+)
+
+
+def _sinal(p: dict) -> tuple[list[str], str]:
+    """Window and wavelet choices of the thesis training screen.
+
+    Returns the extra command-line options (only those that differ from the
+    thesis, so the default command stays the menu's) and the tag that
+    mestrado_emg.features.LegacyFeatureConfig.tag() gives the same choices.
+    """
+    janela = _num(p, "janela", 250, 20, 2000)
+    wavelet = str(p.get("wavelet", "db7"))
+    if not WAVELET.fullmatch(wavelet):
+        raise Recusado(f"Wavelet desconhecida: {wavelet!r} (ex.: db7, sym4, coif2, haar).")
+    niveis = _int(p, "niveis", 4, 1, 10)
+    modo = _escolha(p, "modo", ["mestrado", "faixas"], "mestrado")
+    args, partes = [], []  # args in the menu's order, tag in LegacyFeatureConfig.tag()'s
+    if janela != "250":
+        args += ["--window-ms", janela]
+    if (wavelet, niveis) != ("db7", 4):
+        args += ["--wavelet", wavelet, "--levels", str(niveis)]
+        partes.append(f"{wavelet}-n{niveis}")
+    if modo == "faixas":
+        camadas = p.get("camadas", [1, 2])
+        if not isinstance(camadas, list) or not all(
+            isinstance(n, int) and not isinstance(n, bool) and 1 <= n <= niveis for n in camadas
+        ):
+            raise Recusado(f"Camadas: números de 1 a {niveis} (1 = a faixa mais aguda).")
+        camadas = sorted(set(camadas))
+        aproximacao = _bool(p, "aproximacao", False)
+        if not camadas and not aproximacao:
+            raise Recusado("Nenhuma faixa marcada: escolha ao menos uma camada ou a aproximação.")
+        args += ["--wavelet-mode", "bands", "--layers", *map(str, camadas)]  # may be empty
+        if aproximacao:
+            args.append("--approx")
+        partes.append("D" + "".join(map(str, camadas)) + ("A" if aproximacao else ""))
+    if janela != "250":
+        partes.append(f"w{janela}")
+    return args, "-".join(partes)
+
+
 def plano_treino(p: dict, amb: Ambiente, opc: dict) -> Plano:
     csv, feature, divisao, semente = _treino_args(p, opc)
+    extra, _ = _sinal(p)
     argv = [
         *_compose(BASE), "run", "--rm", "train",
         "ros2", "run", "mestrado_emg", "train_legacy", f"/data/{csv}", "--out", "/models",
-        "--feature", feature, "--split", divisao, "--seed", str(semente),
+        "--feature", feature, "--split", divisao, "--seed", str(semente), *extra,
     ]  # fmt: skip
     return Plano("Treinar os classificadores", [Comando(argv)])
 
 
-def pasta_analise(csv: str, feature: str, divisao: str) -> str:
-    """Folder name analyze_legacy writes to (same rule as scripts/menu.sh)."""
+def pasta_analise(csv: str, feature: str, divisao: str, tag: str = "") -> str:
+    """Folder name analyze_legacy writes to (mestrado_emg.training.run_name)."""
     stem = re.sub(r"[^A-Za-z0-9]+", "-", csv.removesuffix(".csv")).strip("-")
-    return f"{stem}_{feature}_{divisao}"
+    return f"{stem}_{feature}_{divisao}" + (f"_{tag}" if tag else "")
 
 
 def plano_analise(p: dict, amb: Ambiente, opc: dict) -> Plano:
     csv, feature, divisao, semente = _treino_args(p, opc)
+    extra, tag = _sinal(p)
     particoes = _int(p, "particoes", 5, 2, 20)
     canais = str(p.get("canais", "1 2")).split()
     if len(canais) != 2 or not all(re.fullmatch(r"[1-8]", c) for c in canais):
@@ -375,10 +423,10 @@ def plano_analise(p: dict, amb: Ambiente, opc: dict) -> Plano:
         *_compose(BASE), "run", "--rm", "train",
         "ros2", "run", "mestrado_emg", "analyze_legacy", f"/data/{csv}", "--out", "/models/analise",
         "--feature", feature, "--split", divisao, "--seed", str(semente),
-        "--cv", str(particoes), "--pair", *canais,
+        "--cv", str(particoes), "--pair", *canais, *extra,
     ]  # fmt: skip
     return Plano(
-        f"Analisar os resultados → {pasta_analise(csv, feature, divisao)}", [Comando(argv)]
+        f"Analisar os resultados → {pasta_analise(csv, feature, divisao, tag)}", [Comando(argv)]
     )
 
 
@@ -564,6 +612,14 @@ class Tarefa:
         }
 
 
+def _impressao() -> str:
+    """Fingerprint of this file, taken again on every status request."""
+    try:
+        return hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
+    except OSError:
+        return ""
+
+
 class Painel:
     def __init__(self, repo: Path = REPO, docker: Docker | None = None) -> None:
         self.repo = repo
@@ -571,6 +627,13 @@ class Painel:
         self.tarefas: dict[int, Tarefa] = {}
         self.ids = itertools.count(1)
         self.lock = threading.Lock()
+        # The page is read from disk on every visit, the server only at start:
+        # after an update, an old server would silently ignore new options.
+        self.impressao = _impressao()
+
+    @property
+    def desatualizado(self) -> bool:
+        return _impressao() != self.impressao
 
     def estado(self) -> dict:
         info = self.docker.info()
@@ -585,11 +648,17 @@ class Painel:
             "tarefas": tarefas,
             "opcoes": opcoes(self.repo),
             "pagina_braco": _porta_aberta(8080),
+            "desatualizado": self.desatualizado,
         }
 
     def iniciar(self, acao: str, params: dict) -> Tarefa:
         if acao not in ACOES:
             raise Recusado(f"Ação desconhecida: {acao!r}.")
+        if self.desatualizado and not acao.startswith(("parar", "ver_")):
+            raise Recusado(
+                "O painel foi atualizado depois de aberto. Feche a janela do painel e abra "
+                "de novo (Parar continua funcionando)."
+            )
         construir, precisa_docker = ACOES[acao]
         with self.lock:
             if any(t.acao == acao and t.rodando for t in self.tarefas.values()):

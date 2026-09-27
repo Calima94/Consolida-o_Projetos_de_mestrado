@@ -185,6 +185,11 @@ a.btn[aria-disabled="true"] { pointer-events: none; }
 .seta { color: var(--line-strong); font-size: 15px; }
 .resumo { font-size: 13px; color: var(--ink-2); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .resumo strong { font-weight: 600; }
+.aviso-versao {
+  flex-basis: 100%; margin: 0; padding: 10px 12px; border-radius: 9px; font-size: 13.5px;
+  background: var(--amber-soft); color: var(--ink); border: 1px solid color-mix(in srgb, var(--amber) 45%, transparent);
+}
+.aviso-versao b { color: var(--amber); }
 
 /* ------------------------------------------------------------------ layout */
 main.moldura { display: grid; gap: 28px; grid-template-columns: minmax(0, 1fr); padding-block: 8px 40px; }
@@ -244,6 +249,8 @@ h3 { margin: 0; font-family: var(--display); font-stretch: 108%; font-size: 16.5
 .linha .corpo { display: grid; gap: 6px; min-width: 0; }
 .linha .cabeca { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 .linha .acoes { justify-content: flex-end; }
+.linha.larga { grid-template-columns: 40px minmax(0, 1fr); }
+.linha.larga .cabeca .btn { margin-left: auto; }
 @media (max-width: 640px) {
   .linha { grid-template-columns: 40px minmax(0, 1fr); }
   .linha .acoes { grid-column: 1 / -1; justify-content: flex-start; }
@@ -271,6 +278,27 @@ summary:hover { color: var(--ink); }
 .check input { width: 17px; height: 17px; margin: 1px 0 0; accent-color: var(--accent); flex: none; }
 .par { display: flex; gap: 8px; }
 .lista .campos .check { grid-column: 1 / -1; }
+
+/* signal parameters: layer mode and bands */
+fieldset.camadas { margin: 12px 0 0; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); display: grid; gap: 12px; min-width: 0; }
+fieldset.camadas legend { padding: 0 6px; font-size: 12px; letter-spacing: 0.02em; color: var(--muted); }
+.modos { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+.modo { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 9px; border: 1px solid var(--line-strong); background: var(--surface); cursor: pointer; }
+.modo:has(input:checked) { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.modo input { margin: 3px 0 0; accent-color: var(--accent); flex: none; }
+.modo b { display: block; font-weight: 600; font-size: 14px; }
+.modo small { display: block; color: var(--muted); font-size: 12.5px; line-height: 1.4; margin-top: 2px; }
+.faixas { display: flex; flex-wrap: wrap; gap: 8px; }
+.faixa {
+  display: grid; grid-template-columns: auto auto; column-gap: 8px; align-items: center;
+  padding: 7px 11px; border-radius: 9px; border: 1px solid var(--line-strong); background: var(--surface); cursor: pointer;
+}
+.faixa:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.faixa input { accent-color: var(--accent); margin: 0; }
+.faixa b { font-family: var(--mono); font-weight: 500; font-size: 13px; }
+.faixa small { grid-column: 2; font-family: var(--mono); font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.faixas[aria-disabled="true"] .faixa { opacity: 0.45; cursor: not-allowed; }
+.nota { margin: 0; font-size: 13px; color: var(--amber); }
 
 /* maintenance toolbar */
 .ferramentas {
@@ -320,6 +348,7 @@ pre#log .vazio { color: var(--term-muted); }
     <symbol id="i-captura" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="12" r="3"/><path d="M11 12h1.5l1.2-3 1.6 6 1.5-8 1.5 7 1-2H22"/></g><circle cx="6" cy="12" r="1.3" fill="currentColor"/></symbol>
     <symbol id="i-treino" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 20 20 4" stroke-dasharray="0.1 3.2"/><circle cx="6.5" cy="8" r="1.6"/><circle cx="9.5" cy="5.5" r="1.6"/><circle cx="5" cy="12.5" r="1.6"/></g><g fill="currentColor"><circle cx="17.5" cy="16" r="1.8"/><circle cx="14" cy="19" r="1.8"/><circle cx="19" cy="11.5" r="1.8"/></g></symbol>
     <symbol id="i-analise" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3.5v16.5h16.5"/><path d="M4 20c1.2-7 4.5-11.5 15.5-13"/><path d="M4 20 19.5 4.5" stroke-dasharray="1.5 2.5" opacity="0.55"/></g></symbol>
+    <symbol id="i-wavelet" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M2 13h3.5c.9 0 1.3-.8 1.8-2.2.6-1.7 1.1-3.8 2-3.8s1.2 2.7 1.7 5.6c.5 2.9 1 5.4 1.9 5.4s1.4-3.4 2-6.6c.4-2.1.9-3.9 1.6-3.9.8 0 1.2 2.2 1.6 3.9.3 1.1.7 1.6 1.4 1.6H22"/></symbol>
     <symbol id="i-play" viewBox="0 0 24 24"><path fill="currentColor" d="M8 5.6v12.8a.8.8 0 0 0 1.2.7l10.3-6.4a.8.8 0 0 0 0-1.4L9.2 4.9A.8.8 0 0 0 8 5.6z"/></symbol>
     <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/></symbol>
     <symbol id="i-fora" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 5h5v5"/><path d="M19 5 10 14"/><path d="M17 14v4.5a1.5 1.5 0 0 1-1.5 1.5h-10A1.5 1.5 0 0 1 4 18.5v-10A1.5 1.5 0 0 1 5.5 7H10"/></g></symbol>
@@ -356,6 +385,7 @@ pre#log .vazio { color: var(--term-muted); }
       <span class="estacao" data-estacao="pagina"><span class="lamp"></span><b>Página</b><small>:8080</small></span>
     </div>
     <div class="resumo" id="resumo">verificando…</div>
+    <p class="aviso-versao" id="avisoVersao" role="alert" hidden><b>O painel foi atualizado depois de aberto.</b> Feche a janela preta do painel e abra de novo o Painel do projeto. Até lá, só os botões de parar funcionam.</p>
   </section>
 </div>
 
@@ -463,18 +493,42 @@ pre#log .vazio { color: var(--term-muted); }
           </div>
         </div>
 
+        <div class="linha larga" data-card="parametros">
+          <span class="glyph" aria-hidden="true"><svg width="22" height="22"><use href="#i-wavelet"/></svg></span>
+          <div class="corpo">
+            <div class="cabeca"><h3>Parâmetros do sinal</h3><button class="btn quiet small" id="sinalPadrao" title="volta aos parâmetros do mestrado">Restaurar o do mestrado</button></div>
+            <p class="desc">Valem para treinar e para analisar, como na tela de treino do mestrado. O classificador guarda os seus junto com o modelo e os usa na simulação.</p>
+            <p class="spec" id="resumoSinal">6_10_20220.csv · MAV · db7, 4 níveis · como no mestrado · janela 250 ms</p>
+            <details class="opcoes" id="opcoesSinal"><summary>Escolher</summary>
+              <div class="campos">
+                <label class="campo"><span>Gravação</span><select name="csv" id="sinal-csv" data-lista="csvs"></select></label>
+                <label class="campo"><span>Feature</span><select name="feature" id="sinal-feature"><option value="mav">MAV (média absoluta)</option><option value="rms">RMS</option></select></label>
+                <label class="campo"><span>Divisão treino/teste</span><select name="divisao" id="sinal-divisao"><option value="temporal">temporal (blocos)</option><option value="legacy">legacy (sorteio do mestrado)</option></select></label>
+                <label class="campo"><span>Semente</span><input type="number" name="semente" id="sinal-semente" value="42" min="0" step="1"></label>
+                <label class="campo"><span>Janela (ms)</span><input type="number" name="janela" id="sinal-janela" value="250" min="20" max="2000" step="5"></label>
+                <label class="campo"><span>Wavelet-mãe</span><select name="wavelet" id="sinal-wavelet"></select></label>
+                <label class="campo"><span>Níveis da decomposição</span><select name="niveis" id="sinal-niveis"></select></label>
+              </div>
+              <fieldset class="camadas">
+                <legend>Camadas</legend>
+                <div class="modos" role="radiogroup">
+                  <label class="modo"><input type="radio" name="modo" value="mestrado" id="sinal-modo-mestrado" checked><span><b>Como no mestrado</b><small>Reproduz o código original e os modelos históricos. Nele a escolha de camadas não faz efeito: o laço só visita uma posição e remove sempre o D<i data-nivel>4</i>.</small></span></label>
+                  <label class="modo"><input type="radio" name="modo" value="faixas" id="sinal-modo-faixas"><span><b>Faixas escolhidas</b><small>O que a tela do mestrado prometia: ficam só as faixas marcadas, o resto é zerado antes do MAV/RMS.</small></span></label>
+                </div>
+                <div class="faixas" id="faixas" aria-label="Faixas da decomposição, em Hz a 200 amostras/s"></div>
+                <p class="nota" id="notaNivel" hidden></p>
+              </fieldset>
+            </details>
+            <p class="msg" data-msg></p>
+          </div>
+        </div>
+
         <div class="linha" data-card="treino">
           <span class="glyph" aria-hidden="true"><svg width="22" height="22"><use href="#i-treino"/></svg></span>
           <div class="corpo">
             <div class="cabeca"><h3>Treinar os classificadores</h3><span class="estado" data-badge hidden><span class="lamp"></span><span data-txt></span></span></div>
-            <p class="desc">Os cinco classificadores do mestrado a partir de uma gravação.</p>
+            <p class="desc">Os cinco classificadores do mestrado, com os parâmetros do sinal acima.</p>
             <p class="spec">k-NN · LDA · Gauss NB · SVM linear · árvore → models/</p>
-            <details class="opcoes"><summary>Opções</summary><div class="campos">
-              <label class="campo"><span>Gravação</span><select name="csv" id="treino-csv" data-lista="csvs"></select></label>
-              <label class="campo"><span>Feature</span><select name="feature" id="treino-feature"><option>mav</option><option>rms</option></select></label>
-              <label class="campo"><span>Divisão treino/teste</span><select name="divisao" id="treino-divisao"><option>temporal</option><option>legacy</option></select></label>
-              <label class="campo"><span>Semente</span><input type="number" name="semente" id="treino-semente" value="42" min="0" step="1"></label>
-            </div></details>
             <p class="msg" data-msg></p>
           </div>
           <div class="acoes"><button class="btn primary" data-iniciar><svg width="14" height="14"><use href="#i-play"/></svg>Treinar</button></div>
@@ -484,13 +538,9 @@ pre#log .vazio { color: var(--term-muted); }
           <span class="glyph" aria-hidden="true"><svg width="22" height="22"><use href="#i-analise"/></svg></span>
           <div class="corpo">
             <div class="cabeca"><h3>Analisar os resultados</h3><span class="estado" data-badge hidden><span class="lamp"></span><span data-txt></span></span></div>
-            <p class="desc">Acurácia, matrizes de confusão, ROC, sinal bruto e validação cruzada, com um resumo.</p>
+            <p class="desc">Acurácia, matrizes de confusão, ROC, sinal bruto e validação cruzada, com os parâmetros do sinal acima.</p>
             <p class="spec">figuras PNG + resumo.md → models/analise/</p>
             <details class="opcoes"><summary>Opções</summary><div class="campos">
-              <label class="campo"><span>Gravação</span><select name="csv" id="analise-csv" data-lista="csvs"></select></label>
-              <label class="campo"><span>Feature</span><select name="feature" id="analise-feature"><option>mav</option><option>rms</option></select></label>
-              <label class="campo"><span>Divisão treino/teste</span><select name="divisao" id="analise-divisao"><option>temporal</option><option>legacy</option></select></label>
-              <label class="campo"><span>Semente</span><input type="number" name="semente" id="analise-semente" value="42" min="0" step="1"></label>
               <label class="campo"><span>Partições da validação</span><input type="number" name="particoes" id="analise-particoes" value="5" min="2" max="20" step="1"></label>
               <label class="campo"><span>Canais no gráfico</span><span class="par"><select name="canal_a" id="analise-canal-a" aria-label="Primeiro canal"></select><select name="canal_b" id="analise-canal-b" aria-label="Segundo canal"></select></span></label>
               <label class="campo"><span>Abrir as figuras de</span><select name="pasta" id="analise-pasta" data-lista="analises"></select></label>
@@ -582,10 +632,18 @@ function params(card) {
   const p = {};
   for (const el of $$("[name]", card)) {
     if (el.closest("[hidden]")) continue;
+    if (el.type === "radio") { if (el.checked) p[el.name] = el.value; continue; }
+    if (el.name === "camadas") { (p.camadas ??= []); if (el.checked) p.camadas.push(Number(el.value)); continue; }
     p[el.name] = el.type === "checkbox" ? el.checked : el.value;
   }
   if ("canal_a" in p) { p.canais = `${p.canal_a} ${p.canal_b}`; delete p.canal_a; delete p.canal_b; }
   return p;
+}
+// training and analysis share the signal parameters, as on the thesis screen
+const USA_SINAL = ["treino", "analise"];
+function paramsDe(card) {
+  const p = params($(`[data-card="${card}"]`));
+  return USA_SINAL.includes(card) ? { ...params($('[data-card="parametros"]')), ...p } : p;
 }
 
 function mensagem(card, texto) { const m = $("[data-msg]", card); if (m) m.textContent = texto || ""; }
@@ -609,9 +667,102 @@ function marcar(el, s, texto) {  // status pill: lamp + text
 
 // ------------------------------------------------------------ options (lists from the server, remembered choices)
 function rotuloModelo(nome) {
-  const m = /^(knn|lda|gnb|lin_svm|tree)_(.+)_(mav|rms)_(temporal|legacy)_latest\.joblib$/.exec(nome);
-  return m ? `${CLASSIFICADOR[m[1]]} · ${m[2]} · ${m[3]} ${m[4]}` : nome;
+  const m = /^(knn|lda|gnb|lin_svm|tree)_([^_]+)_(mav|rms)_(temporal|legacy)(?:_(.+))?_latest\.joblib$/.exec(nome);
+  return m ? `${CLASSIFICADOR[m[1]]} · ${m[2]} · ${m[3]} ${m[4]}${m[5] ? " · " + m[5] : ""}` : nome;
 }
+
+// ------------------------------------------------------------ signal parameters (wavelet)
+const WAVELETS = [
+  ["Daubechies", Array.from({ length: 20 }, (_, i) => `db${i + 1}`)],
+  ["Symlets", Array.from({ length: 9 }, (_, i) => `sym${i + 2}`)],
+  ["Coiflets", Array.from({ length: 5 }, (_, i) => `coif${i + 1}`)],
+  ["Haar", ["haar"]],
+];
+const SINAL_PADRAO = { feature: "mav", divisao: "temporal", semente: "42", janela: "250", wavelet: "db7", niveis: "4", modo: "mestrado", camadas: [1, 2], aproximacao: false };
+const FS = 200;  // Myo; the page's Hz labels assume it, like the thesis screen
+const hz = (x) => x.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
+
+function decLen(w) {  // filter length, as pywt.Wavelet(w).dec_len
+  if (w === "haar") return 2;
+  const m = /^(db|sym|coif)(\d+)$/.exec(w);
+  return !m ? 0 : m[1] === "coif" ? 6 * Number(m[2]) : 2 * Number(m[2]);
+}
+function nivelUtil(amostras, w) {  // pywt.dwt_max_level
+  const L = decLen(w);
+  return L <= 1 || amostras < L - 1 ? 0 : Math.floor(Math.log2(amostras / (L - 1)));
+}
+
+const sinal = {
+  el: () => $('[data-card="parametros"]'),
+  montar() {
+    const w = $("#sinal-wavelet");
+    for (const [familia, nomes] of WAVELETS) {
+      const g = document.createElement("optgroup");
+      g.label = familia;
+      for (const n of nomes) g.append(new Option(n, n));
+      w.append(g);
+    }
+    w.value = "db7";
+    const nv = $("#sinal-niveis");
+    for (let i = 1; i <= 8; i++) nv.append(new Option(String(i), String(i)));
+    nv.value = "4";
+    $("#faixas").addEventListener("change", (ev) => {
+      if (ev.target.name === "camadas") guardar("parametros:camadas", $$('#faixas [name="camadas"]').filter((c) => c.checked).map((c) => Number(c.value)));
+      if (ev.target.name === "aproximacao") guardar("parametros:aproximacao", ev.target.checked);
+      sinal.atualizar();
+    });
+    this.el().addEventListener("change", (ev) => { if (ev.target.closest("#faixas")) return; sinal.atualizar(true); });
+    $("#sinalPadrao").addEventListener("click", () => sinal.restaurar());
+  },
+  restaurar() {
+    for (const [k, v] of Object.entries(SINAL_PADRAO)) {
+      guardar("parametros:" + k, v);
+      if (k === "modo") $(`[name="modo"][value="${v}"]`).checked = true;
+      else if (k !== "camadas" && k !== "aproximacao") $(`#sinal-${k}`).value = v;
+    }
+    sinal.atualizar(true);
+  },
+  faixas() {  // D1..Dn and An, with their band in Hz; keeps the ticks across level changes
+    const n = Number($("#sinal-niveis").value), nyq = FS / 2;
+    const marcadas = new Set(lembrar("parametros:camadas") ?? SINAL_PADRAO.camadas);
+    const chip = (nome, valor, rotulo, faixa, marcado) => {
+      const l = document.createElement("label");
+      l.className = "faixa";
+      const i = Object.assign(document.createElement("input"), { type: "checkbox", name: nome, value: valor, checked: marcado });
+      l.append(i, Object.assign(document.createElement("b"), { textContent: rotulo }), Object.assign(document.createElement("small"), { textContent: faixa }));
+      return l;
+    };
+    const itens = [];
+    for (let k = 1; k <= n; k++) itens.push(chip("camadas", k, `D${k}`, `${hz(nyq / 2 ** k)}–${hz(nyq / 2 ** (k - 1))} Hz`, marcadas.has(k)));
+    itens.push(chip("aproximacao", "1", `A${n}`, `0–${hz(nyq / 2 ** n)} Hz`, lembrar("parametros:aproximacao") ?? false));
+    $("#faixas").replaceChildren(...itens);
+  },
+  atualizar(refazer = false) {
+    const el = this.el();
+    const p = params(el);
+    const n = Number(p.niveis);
+    if (refazer || $$("#faixas .faixa").length !== n + 1) this.faixas();
+    const legado = p.modo !== "faixas";
+    const caixa = $("#faixas");
+    caixa.setAttribute("aria-disabled", String(legado));
+    $$("input", caixa).forEach((i) => (i.disabled = legado));
+    $$("[data-nivel]", el).forEach((i) => (i.textContent = n));
+
+    const amostras = Math.floor(Number(p.janela) / (1000 / FS));
+    const util = nivelUtil(amostras, p.wavelet);
+    const nota = $("#notaNivel");
+    nota.hidden = !(amostras > 0 && n > util);
+    nota.textContent = `${p.wavelet} em janelas de ${amostras} amostras tem ${util} ${util === 1 ? "nível útil" : "níveis úteis"}; ` +
+      `com ${n}, os níveis mais profundos são dominados por efeitos de borda. O mestrado usava db7 com 4.`;
+
+    const faixas = [...(p.camadas || []).map((k) => `D${k}`), ...(p.aproximacao ? [`A${n}`] : [])];
+    const modo = legado ? "como no mestrado" : faixas.length ? "faixas " + faixas.join("+") : "nenhuma faixa marcada";
+    $("#resumoSinal").textContent = [
+      p.csv || "(sem gravação)", p.feature.toUpperCase(), `divisão ${p.divisao}`,
+      `${p.wavelet}, ${n} ${n === 1 ? "nível" : "níveis"}`, modo, `janela ${p.janela} ms`,
+    ].join(" · ");
+  },
+};
 const PADRAO_LISTA = { csvs: "6_10_20220.csv", modelos: "knn_6-10-20220_mav_temporal_latest.joblib", videos: VIDEO_ESPELHADO };
 
 function preencherListas() {
@@ -647,6 +798,11 @@ function prepararCampos() {
     for (const el of $$("[name]", card)) {
       if (el.dataset.lista) { el.addEventListener("change", () => guardar(nome + ":" + el.name, el.value)); continue; }
       const v = lembrar(nome + ":" + el.name);
+      if (el.type === "radio") {
+        if (v !== undefined) el.checked = el.value === v;
+        el.addEventListener("change", () => el.checked && guardar(nome + ":" + el.name, el.value));
+        continue;
+      }
       if (v !== undefined) { if (el.type === "checkbox") el.checked = v; else el.value = v; }
       el.addEventListener("change", () => guardar(nome + ":" + el.name, el.type === "checkbox" ? el.checked : el.value));
     }
@@ -668,6 +824,10 @@ function render() {
   const servicos = new Set(rodando.map((c) => c.servico));
   const principais = PRINCIPAIS.filter((s) => servicos.has(s));
   const dockerOk = e.docker.ok;
+  // a server older than this page ignores options it does not know: only stopping is safe
+  const velho = !("desatualizado" in e) || e.desatualizado;
+  $("#avisoVersao").hidden = !velho;
+  const pode = dockerOk && !velho;
 
   const d = $("#docker");
   d.dataset.s = dockerOk ? "ok" : "off";
@@ -706,7 +866,7 @@ function render() {
     marcar($("[data-badge]", el), ativo ? "rodando" : iniciando ? "iniciando" : falhou ? "falhou" : "", ativo ? "rodando" : iniciando ? "iniciando…" : falhou ? "falhou" : "parado");
     const ini = $("[data-iniciar]", el);
     ini.hidden = ativo;
-    ini.disabled = !dockerOk || iniciando || Boolean(outro);
+    ini.disabled = !pode || iniciando || Boolean(outro);
     $("[data-parar]", el).hidden = !ativo;
     const seguindo = tarefaDe([card, s.ver]);
     $("[data-ver]", el).hidden = !ativo || Boolean(seguindo && seguindo.rodando);
@@ -729,7 +889,7 @@ function render() {
     const ini = $("[data-iniciar]", el);
     ini.hidden = card === "captura" && ocupado;
     const outro = card === "captura" && principais.find((x) => x !== "captura");
-    ini.disabled = !dockerOk || ocupado || Boolean(outro);
+    ini.disabled = !pode || ocupado || Boolean(outro);
     const parar = $("[data-parar]", el);
     if (parar) parar.hidden = !ocupado;
     const dica = $("[data-dica]", el);
@@ -740,7 +900,8 @@ function render() {
   for (const b of $$("[data-acao]")) {
     const t = tarefaDe([b.dataset.acao]);
     const precisa = !["verificar", "dados", "abrir_docker"].includes(b.dataset.acao);
-    b.disabled = (t && t.rodando) || (precisa && !dockerOk) || (b.id === "pararTudo" && !rodando.length);
+    const livre = b.id === "pararTudo" || b.dataset.acao === "verificar" || b.dataset.acao === "abrir_docker";
+    b.disabled = (t && t.rodando) || (precisa && !dockerOk) || (!livre && velho) || (b.id === "pararTudo" && !rodando.length);
   }
   if (!rodando.length) desarmar();
 
@@ -849,7 +1010,9 @@ async function atualizar() {
     const r = await fetch("/api/estado", { cache: "no-store" });
     estado = await r.json();
     preencherListas();
+    sinal.atualizar();
     render();
+    abrirUltimaAnalise();
   } catch {
     $("#docker").dataset.s = "off";
     $("#dockerTxt").textContent = "painel sem resposta";
@@ -857,7 +1020,20 @@ async function atualizar() {
   }
 }
 
+// After an analysis ends well, "Figuras" points at the folder it wrote.
+let analiseVista = null;
+function abrirUltimaAnalise() {
+  const t = tarefaDe(["analise"]);
+  if (!t || t.rodando || t.codigo !== 0 || t.id === analiseVista) return;
+  analiseVista = t.id;
+  const pasta = t.titulo.split("→ ")[1];
+  const sel = $('[data-card="analise"] [name="pasta"]');
+  if (pasta && [...sel.options].some((o) => o.value === pasta)) sel.value = pasta;
+}
+
+sinal.montar();
 prepararCampos();
+sinal.atualizar(true);
 for (const [card, s] of Object.entries(SERVICOS)) {
   const el = $(`[data-card="${card}"]`);
   const abrir = $("[data-abrir]", el);
@@ -868,7 +1044,7 @@ for (const [card, s] of Object.entries(SERVICOS)) {
 }
 for (const card of ["captura", "treino", "analise"]) {
   const el = $(`[data-card="${card}"]`);
-  $("[data-iniciar]", el).addEventListener("click", () => executar(card, params(el), el));
+  $("[data-iniciar]", el).addEventListener("click", () => executar(card, paramsDe(card), el));
   const parar = $("[data-parar]", el);
   if (parar) parar.addEventListener("click", () => { const t = tarefaDe([card]); if (t) post("/api/parar_tarefa", { tarefa: t.id }).then(atualizar); });
 }

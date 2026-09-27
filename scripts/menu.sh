@@ -114,32 +114,61 @@ run() {
   echo "  (terminou com código $rc)"
 }
 
+# The window and wavelet fields of the thesis training screen, behind one
+# question so that Enter keeps the thesis setup. Fills SIGNAL_ARGS with the
+# options that differ from it (train_legacy/analyze_legacy --help).
+ask_signal() {
+  SIGNAL_ARGS=()
+  local adv janela wavelet levels mode layers approx
+  ask adv "ajustar janela e wavelet? (s/N)" "n"
+  case "$adv" in s | S) ;; *) return ;; esac
+  ask janela "janela em ms" "250"
+  ask wavelet "wavelet-mãe (db7, sym4, coif2, haar...)" "db7"
+  choose levels "níveis da decomposição:" "4" 1 2 3 4 5 6
+  echo "  camadas: 'mestrado' repete o código original (a escolha de camadas não faz efeito);"
+  echo "           'faixas' mantém só as camadas escolhidas (1 = a mais fina, 50-100 Hz)"
+  choose mode "modo:" "mestrado" mestrado faixas
+  [ "$janela" = 250 ] || SIGNAL_ARGS+=(--window-ms "$janela")
+  if [ "$wavelet" != db7 ] || [ "$levels" != 4 ]; then
+    SIGNAL_ARGS+=(--wavelet "$wavelet" --levels "$levels")
+  fi
+  if [ "$mode" = faixas ]; then
+    ask layers "camadas a manter" "1 2"
+    ask approx "manter também a aproximação? (s/N)" "n"
+    # shellcheck disable=SC2206  # the layers are words on purpose
+    SIGNAL_ARGS+=(--wavelet-mode bands --layers $layers)
+    case "$approx" in s | S) SIGNAL_ARGS+=(--approx) ;; esac
+  fi
+}
+
 opt_train() {
   local csv feature split seed
   pick_csv csv
   choose feature "feature:" "mav" mav rms
   choose split "divisão treino/teste:" "temporal" temporal legacy
   ask seed "semente" "42"
+  ask_signal
   run docker compose "${BASE[@]}" run --rm train \
     ros2 run mestrado_emg train_legacy "/data/$csv" --out /models \
-    --feature "$feature" --split "$split" --seed "$seed"
-  echo "  Modelos em models/, com o nome <classificador>_<arquivo>_${feature}_${split}_latest.joblib"
+    --feature "$feature" --split "$split" --seed "$seed" "${SIGNAL_ARGS[@]}"
+  echo "  Modelos em models/, com o nome <classificador>_<arquivo>_${feature}_${split}[_<ajustes>]_latest.joblib"
 }
 
 opt_analyze() {
-  local csv feature split seed folds pair stem
+  local csv feature split seed folds pair
   pick_csv csv
   choose feature "feature:" "mav" mav rms
   choose split "divisão treino/teste:" "temporal" temporal legacy
   ask seed "semente" "42"
   ask folds "partições da validação cruzada" "5"
   ask pair "dois canais para o gráfico de dispersão" "1 2"
+  ask_signal
   # shellcheck disable=SC2086  # the pair is two words on purpose
   run docker compose "${BASE[@]}" run --rm train \
     ros2 run mestrado_emg analyze_legacy "/data/$csv" --out /models/analise \
-    --feature "$feature" --split "$split" --seed "$seed" --cv "$folds" --pair $pair
-  stem="$(echo "${csv%.csv}" | sed -E 's/[^A-Za-z0-9]+/-/g; s/^-+//; s/-+$//')"
-  echo "  Figuras e resumo em models/analise/${stem}_${feature}_${split}/"
+    --feature "$feature" --split "$split" --seed "$seed" --cv "$folds" --pair $pair \
+    "${SIGNAL_ARGS[@]}"
+  echo "  Figuras e resumo em models/analise/ (a última linha da análise diz a pasta)"
   if is_wsl; then
     echo "  Para abrir no Windows: cd models/analise && explorer.exe ."
   fi

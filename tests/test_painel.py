@@ -320,3 +320,89 @@ def test_other_host_names_are_refused(servidor):
 def test_unknown_action_is_a_conflict_with_a_message(servidor):
     status, r = _pedir(servidor, "/api/acao", {"acao": "rm"}, {"X-Painel": "1"})
     assert status == 409 and "desconhecida" in r["erro"]
+
+
+# ------------------------------------------------ signal parameters (wavelet)
+
+NOVO = {"janela": "300", "wavelet": "sym4", "niveis": "2", "modo": "faixas", "camadas": [1],
+        "aproximacao": True}  # fmt: skip
+NOVO_ARGS = ["--window-ms", "300", "--wavelet", "sym4", "--levels", "2", "--wavelet-mode", "bands",
+             "--layers", "1", "--approx"]  # fmt: skip
+
+
+def test_thesis_signal_adds_nothing_to_the_command():
+    assert painel._sinal({}) == ([], "")
+    assert painel._sinal({"modo": "mestrado", "camadas": [3]}) == ([], "")  # no effect there
+
+
+def test_new_signal_choices_reach_training_and_analysis():
+    (treino,) = painel.plano_treino(NOVO, WSL, OPC).passos
+    assert treino.argv[-len(NOVO_ARGS) :] == NOVO_ARGS
+    plano = painel.plano_analise(NOVO, WSL, OPC)
+    assert plano.passos[0].argv[-len(NOVO_ARGS) :] == NOVO_ARGS
+    assert plano.titulo.endswith("6-10-20220_mav_temporal_sym4-n2-D1A-w300")
+
+
+def test_only_the_approximation():
+    args, tag = painel._sinal({"modo": "faixas", "camadas": [], "aproximacao": True})
+    assert args == ["--wavelet-mode", "bands", "--layers", "--approx"] and tag == "DA"
+
+
+@pytest.mark.parametrize(
+    "p",
+    [
+        {"wavelet": "db7; rm -rf /"},
+        {"wavelet": "morl"},  # continuous: no decomposition
+        {"niveis": "0"},
+        {"modo": "faixas", "camadas": [5]},
+        {"modo": "faixas", "camadas": ["1"]},
+        {"modo": "faixas", "camadas": [], "aproximacao": False},
+        {"janela": "5"},
+    ],
+)
+def test_bad_signal_choices_are_refused(p):
+    with pytest.raises(painel.Recusado):
+        painel._sinal(p)
+
+
+@pytest.mark.parametrize(
+    "p",
+    [
+        {},
+        NOVO,
+        {"wavelet": "db4", "niveis": "2"},
+        {"modo": "faixas", "camadas": [2, 1]},
+        {"modo": "faixas", "camadas": [], "aproximacao": True},
+        {"janela": "500"},
+    ],
+)
+def test_the_panel_names_the_folder_the_training_code_will_write(p):
+    """The panel's tag and the one train_legacy computes from the panel's own arguments."""
+    pytest.importorskip("pywt", reason="needs the pipeline (host CI job or the image)")
+    import argparse
+
+    from mestrado_emg.features import add_pipeline_args, config_from_args
+
+    args, tag = painel._sinal(p)
+    parser = argparse.ArgumentParser()
+    add_pipeline_args(parser)
+    assert config_from_args(parser.parse_args(args)).tag() == tag
+
+
+@pytest.mark.skipif(sys.platform != "linux", reason="bash script for WSL/Linux")
+def test_the_menu_asks_the_same_signal_choices():
+    menu = _menu_command("4\n\n\n\n\ns\n300\nsym4\n2\nfaixas\n1\ns\n0\n")
+    assert menu.endswith("--seed 42 " + " ".join(NOVO_ARGS))
+
+
+def test_a_panel_older_than_its_file_only_stops_things(tmp_path, monkeypatch):
+    """The page is read from disk each visit; the server only at start."""
+    p = painel.Painel(tmp_path, FakeDocker())
+    acao_de_teste(monkeypatch, "oi", python("print('oi')"))
+    acao_de_teste(monkeypatch, "parar_oi", python("print('parado')"))
+    assert p.estado()["desatualizado"] is False
+    monkeypatch.setattr(painel, "_impressao", lambda: "outra versão")
+    assert p.estado()["desatualizado"] is True
+    with pytest.raises(painel.Recusado, match="atualizado depois de aberto"):
+        p.iniciar("oi", {})
+    _esperar(p.iniciar("parar_oi", {}))
