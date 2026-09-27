@@ -98,6 +98,75 @@ def test_fetch_checks_md5_even_when_the_published_one_is_masked():
     assert not fetch.md5_ok(good, "0" * 32)
 
 
+class _Resposta:
+    def __init__(self, corpo: bytes):
+        self.corpo = corpo
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def read(self):
+        return self.corpo
+
+
+def _lista(versao="1.0"):
+    maior, menor = versao.split(".")
+    arquivos = [
+        {"directoryLabel": "sub-01/motion",
+         "dataFile": {"id": 7, "filename": "sub-01_task-ReaCyl_acq-vicon_motion.csv",
+                      "filesize": 10, "checksum": {"value": "a" * 32}}},
+        {"directoryLabel": "sub-01/emg",
+         "dataFile": {"id": 8, "filename": "sub-01_task-ReaCyl_acq-bipolar_emg.edf",
+                      "filesize": 99, "checksum": {"value": "b" * 32}}},
+    ]  # fmt: skip
+    dados = {"versionNumber": int(maior), "versionMinorNumber": int(menor), "files": arquivos}
+    return json.dumps({"data": dados}).encode()
+
+
+def test_listing_survives_a_timeout_like_the_ci_one(monkeypatch):
+    """One timeout while listing the files used to end the download (CI, PR #9)."""
+    fetch = _load_script("fetch_reach_grasp")
+    respostas = iter([TimeoutError("timed out"), TimeoutError("timed out"), _lista()])
+
+    def urlopen(url, timeout):
+        r = next(respostas)
+        if isinstance(r, Exception):
+            raise r
+        return _Resposta(r)
+
+    esperas = []
+    monkeypatch.setattr(fetch.urllib.request, "urlopen", urlopen)
+    monkeypatch.setattr(fetch.time, "sleep", esperas.append)
+    files = fetch.list_vicon_files()
+    assert [f["path"] for f in files] == ["sub-01/motion/sub-01_task-ReaCyl_acq-vicon_motion.csv"]
+    assert esperas == [2, 4]  # two retries, then it worked
+
+
+def test_listing_gives_up_and_a_wrong_version_is_not_retried(monkeypatch):
+    fetch = _load_script("fetch_reach_grasp")
+    monkeypatch.setattr(fetch.time, "sleep", lambda s: None)
+
+    def sempre_cai(url, timeout):
+        raise TimeoutError("timed out")
+
+    monkeypatch.setattr(fetch.urllib.request, "urlopen", sempre_cai)
+    with pytest.raises(TimeoutError):
+        fetch.list_vicon_files(retries=2)
+    chamadas = []
+
+    def versao_nova(url, timeout):
+        chamadas.append(url)
+        return _Resposta(_lista("2.0"))
+
+    monkeypatch.setattr(fetch.urllib.request, "urlopen", versao_nova)
+    with pytest.raises(RuntimeError, match="version 2.0, expected 1.0"):
+        fetch.list_vicon_files()
+    assert len(chamadas) == 1
+
+
 def test_checker_finds_the_lag_of_a_delayed_copy():
     check = _load_script("check_movement") if importlib.util.find_spec("rclpy") else None
     if check is None:
