@@ -383,6 +383,23 @@ de teste, semente 5). Com essa coluna, a análise acrescenta a validação por
 participante: treina com sete pessoas e testa na oitava. Os resultados e o
 porquê estão em [`ANALISE_GESTOS.md`](ANALISE_GESTOS.md).
 
+**A LSTM da disciplina, refeita.** O cartão "Refazer a LSTM da disciplina" do
+painel (ou a opção 12 do menu) treina de novo a rede do notebook PyTorch da
+disciplina, sem mudar nada, em três divisões: a do notebook (o teste repete
+janelas do treino), sorteio sem repetição e participante novo. Ela roda numa
+imagem própria, com PyTorch para CPU (1,7 GB, construída na primeira vez):
+
+```bash
+docker compose -f docker/compose.yaml --profile lstm build lstm
+docker compose -f docker/compose.yaml --profile lstm run --rm lstm
+```
+
+São 30 treinos de 200 épocas (3 sementes), em paralelo, cerca de 1 minuto com
+20 núcleos. O resumo e as figuras (`acuracia.png`, `confusao.png`) vão para
+`models/analise/gestos-1khz_lstm/`. Para um teste rápido:
+`... run --rm lstm python3 -m mestrado_emg.lstm_gestos /data/gestos_1khz.csv
+--out /models/analise --epocas 20 --repeticoes 1`.
+
 ### 7. Modo espelho: o braço do Gazebo copia o seu
 
 Não precisa de sEMG. Com o **vídeo gravado no mestrado**:

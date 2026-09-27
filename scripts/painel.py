@@ -527,6 +527,34 @@ def plano_analise(p: dict, amb: Ambiente, opc: dict) -> Plano:
     )
 
 
+GESTOS_CSV = "gestos_1khz.csv"  # scripts/fetch_gesture_data.sh
+
+
+def plano_lstm(p: dict, amb: Ambiente, opc: dict) -> Plano:
+    """The course project's LSTM again, split three ways (mestrado_emg.lstm_gestos).
+
+    Its own image (PyTorch), built on the first run and a cache hit after that.
+    """
+    if GESTOS_CSV not in opc["csvs"]:
+        raise Recusado(
+            f"Falta data/{GESTOS_CSV}: baixe em Manutenção → Dados → Gestos da disciplina."
+        )
+    epocas = _int(p, "epocas", 200, 1, 1000)
+    sementes = _int(p, "repeticoes", 3, 1, 10)
+    extra = [] if epocas == 200 else ["--epocas", str(epocas)]
+    extra += [] if sementes == 3 else ["--repeticoes", str(sementes)]
+    c = [*_compose(BASE), "--profile", "lstm"]
+    argv = [
+        *c, "run", "--rm", "lstm", "python3", "-m", "mestrado_emg.lstm_gestos",
+        f"/data/{GESTOS_CSV}", "--out", "/models/analise", *extra,
+    ]  # fmt: skip
+    pasta = pasta_analise(GESTOS_CSV, "lstm", "").rstrip("_")
+    pasta += "" if epocas == 200 else f"-e{epocas}"
+    return Plano(
+        f"Refazer a LSTM da disciplina → {pasta}", [Comando([*c, "build", "lstm"]), Comando(argv)]
+    )
+
+
 def plano_abrir_figuras(p: dict, amb: Ambiente, opc: dict) -> Plano:
     if not opc["analises"]:
         raise Recusado("Ainda não há análises em models/analise: rode Analisar antes.")
@@ -588,6 +616,7 @@ ACOES: dict[str, tuple[Construtor, bool]] = {
     "captura": (plano_captura, True),
     "treino": (plano_treino, True),
     "analise": (plano_analise, True),
+    "lstm": (plano_lstm, True),
     "abrir_figuras": (plano_abrir_figuras, False),
     "testes_rapido": (_script("Testes (rápido)", "scripts/ci_local.sh", "--rapido"), True),
     "testes_completo": (_script("Testes (completo)", "scripts/ci_local.sh"), True),

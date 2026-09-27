@@ -312,5 +312,36 @@ preenche os parâmetros usados lá, e "Parte de teste (%)" dá o `--test-size`.
   novo, não os 100 % relatados (achado 26). Detalhes em
   [ANALISE_GESTOS.md](ANALISE_GESTOS.md).
 
-*Rever se* a LSTM for refeita: ela deve usar a mesma divisão por participante
-(achado 27).
+A LSTM da disciplina foi refeita com a mesma divisão por participante (D26).
+
+**D26. A LSTM da disciplina, refeita igual, numa imagem própria.**
+`mestrado_emg/lstm_gestos.py` repete o notebook PyTorch da disciplina e muda
+só a divisão treino/teste: a do notebook (com sobreposição, achado 27), sorteio
+sem sobreposição e participante novo.
+
+- **Igual, inclusive no que parece errado.** A arquitetura (a recorrência corre
+  entre as janelas do lote, achado 28), o dropout só na primeira época, a
+  média móvel sem o último canal e os hiperparâmetros escolhidos olhando o
+  teste ficam como estão. Corrigir qualquer um deles misturaria dois efeitos,
+  e a pergunta era quanto a divisão muda o resultado. A reprodução com a
+  divisão do notebook dá 97,0 % (o relatório diz 96,95 %), o que confere a
+  fidelidade.
+- **Uma diferença, pequena e declarada:** nas divisões novas, o valor máximo
+  que normaliza as janelas vem só das de treino (o notebook o tira de todas).
+- **Imagem própria (`docker/Dockerfile.lstm`, perfil `lstm` do compose).** O
+  PyTorch para CPU ocupa ~1,7 GB com a imagem, e nada do ROS precisa dele. Com
+  o perfil, `docker compose build` e o botão "Construir a imagem" continuam sem
+  baixá-lo; o cartão do painel e a opção 12 do menu constroem na primeira vez.
+  O `ci_local.sh` roda os testes da LSTM nessa imagem quando ela existe; o CI
+  do GitHub não a constrói.
+- **Rápido o bastante para um botão.** Cada treino dura ~15–25 s na CPU. Os 30
+  treinos (3 sementes × 10 divisões) rodam em paralelo, um por núcleo, em
+  cerca de 1 min com 20 núcleos, e com as mesmas sementes o resultado se
+  repete exatamente.
+
+Resultado: 97,0 % → 88,4 % sem a sobreposição → 82,7 % com participante novo,
+abaixo do kNN (89 %) e do SVM (88 %) na mesma divisão
+([ANALISE_GESTOS.md](ANALISE_GESTOS.md)). *Rever se* for testada uma LSTM que
+percorra o tempo dentro da janela, ou hiperparâmetros escolhidos com
+validação honesta: aí o módulo ganha uma opção, e a reprodução fiel continua
+sendo o padrão.

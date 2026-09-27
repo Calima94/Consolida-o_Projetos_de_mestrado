@@ -92,6 +92,12 @@ elif ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
 fi
 step ruff "ruff (lint e formatação, $RUFF)" ruff_checks
 step pytest "testes unitários (pytest, na imagem)" in_image "$IMAGE" python3 -m pytest -q -p no:cacheprovider
+# The course LSTM needs PyTorch, which only its own image has (docker/Dockerfile.lstm).
+# That image is not built here (~1 GB): the step runs once the panel or the menu built it.
+if docker image inspect mestrado-lstm:cpu >/dev/null 2>&1; then
+  step lstm "LSTM da disciplina (pytest, na imagem da LSTM)" \
+    in_image mestrado-lstm:cpu python3 -m pytest -q -p no:cacheprovider tests/test_lstm_gestos.py
+fi
 if [ "$QUICK" = 0 ]; then
   step analise "análise dos resultados (analyze_legacy)" \
     docker run --rm -v "$REPO/data:/data:ro" "$IMAGE" \

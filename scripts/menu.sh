@@ -206,6 +206,21 @@ opt_analyze() {
   fi
 }
 
+# The course project's LSTM again, split three ways (mestrado_emg/lstm_gestos.py).
+# Its own image with PyTorch: the build is a cache hit after the first time.
+opt_lstm() {
+  local epocas sementes
+  local -a extra=()
+  ask epocas "épocas" "200"
+  ask sementes "sementes (repetições)" "3"
+  [ "$epocas" = 200 ] || extra+=(--epocas "$epocas")
+  [ "$sementes" = 3 ] || extra+=(--repeticoes "$sementes")
+  run docker compose "${BASE[@]}" --profile lstm build lstm
+  run docker compose "${BASE[@]}" --profile lstm run --rm lstm \
+    python3 -m mestrado_emg.lstm_gestos /data/gestos_1khz.csv --out /models/analise "${extra[@]}"
+  echo "  Resumo e figuras em models/analise/gestos-1khz_lstm/"
+}
+
 opt_arm() {
   local -a win
   read -r -a win <<<"$(window_files)"
@@ -309,6 +324,7 @@ menu() {
    9) Captura de dados (sEMG + ângulo do cotovelo)
   10) Encerrar tudo que estiver rodando
   11) Baixar os dados de gestos da disciplina (1 kHz, 8 participantes)
+  12) Refazer a LSTM da disciplina (divisão por participante)
    0) Sair
 EOF
 }
@@ -329,6 +345,7 @@ while true; do
     9) opt_capture ;;
     10) run scripts/stop.sh ;;
     11) run scripts/fetch_gesture_data.sh ;;
+    12) opt_lstm ;;
     0 | q | sair) exit 0 ;;
     "") ;;
     *) echo "  opção inválida: $choice" ;;

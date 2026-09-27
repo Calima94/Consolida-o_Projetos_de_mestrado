@@ -118,11 +118,13 @@ O porte não tem esse problema: `load_legacy_csv` escolhe as colunas de entrada
 pelo nome (`channel…`), e o rótulo e o participante ficam à parte, com
 qualquer número de canais.
 
-## E os 97 % da LSTM? (achado 27)
+## A LSTM, refeita (achados 27 e 28)
 
-Não refiz a LSTM. Mas, lendo o notebook PyTorch da disciplina
-(`Deep_Learning_EMG_Pytorch_Modificado.ipynb`), a comparação também não se
-sustenta do lado dela:
+### O que o notebook faz
+
+No notebook PyTorch da disciplina (`Deep_Learning_EMG_Pytorch_Modificado.ipynb`,
+commit `f7d28a4` de `Calima94/DEEP_LEARNING_MYO_SIGNALS`), a divisão não
+separa treino e teste:
 
 - `EMGDataset` sorteia a divisão treino/teste **dentro do construtor**, com
   `np.random.shuffle` e sem semente. O conjunto de treino e o de teste são dois
@@ -136,20 +138,82 @@ sustenta do lado dela:
   `train_test_split(test_size=0.2, stratify=Y)`: janelas sorteadas, sem
   sobreposição, mas com as mesmas pessoas no treino e no teste.
 
-Detalhe menor: a média móvel usa `range(d.shape[1] - 1)` e deixa o último canal
-sem suavizar.
+E a rede não é bem uma LSTM sobre o sinal (achado 28):
 
-Os 97 % são, então, um limite superior, e não se sabe quanto cairiam. Para
-comparar LSTM e classificadores clássicos é preciso **a mesma divisão para os
-dois**. A mais útil para prótese é a de participante novo, que a análise já
-calcula para os clássicos (83–89 %).
+- `forward` achata a janela de 200 × 4 em 800 números (`x.view(batch, -1)`) e
+  entrega ao `nn.LSTM` um tensor de **2 dimensões**. O PyTorch lê isso como
+  **uma sequência só, sem lote, cujos passos são as janelas do lote**. A
+  recorrência corre de uma janela para a seguinte dentro do lote, e não ao
+  longo do tempo dentro de cada janela. Para cada janela, a rede vê 800
+  números soltos, como um classificador comum, mais um estado herdado da
+  janela anterior do lote.
+- O dropout só atua na primeira época: `validate()` põe o modelo em modo de
+  avaliação ao fim de cada época e nada o volta para o modo de treino.
+- A média móvel usa `range(d.shape[1] - 1)` e deixa o último canal sem
+  suavizar.
+- Os números do relatório não são todos do mesmo modelo. Os 39 137 parâmetros
+  são do modelo padrão, de 12 unidades. Os 0,41 MB são do escolhido pelo
+  Optuna, de 32 unidades (106 917 parâmetros). O texto fala em 64 unidades.
+
+### Refeita com as divisões honestas
+
+`mestrado_emg/lstm_gestos.py` repete o notebook: as mesmas janelas, o mesmo
+pré-processamento, a mesma rede, os mesmos hiperparâmetros e 200 épocas,
+inclusive as particularidades acima. **Só a divisão muda.** No painel, é o
+cartão "Refazer a LSTM da disciplina" (cerca de 1 min com 20 núcleos, numa
+imagem própria com PyTorch); no menu, a opção 12. Cada divisão roda com 3
+sementes; a de participante novo, com as 8 pessoas em cada semente.
+
+Com a divisão do próprio notebook, a reprodução dá **97,0 %** (o relatório diz
+96,95 %). Com as mesmas 4095 janelas, 819 de teste e 78 % delas também no
+treino, a reprodução é fiel.
+
+| Divisão | Teste também no treino | LSTM | kNN | SVM | LDA |
+|---|---|---|---|---|---|
+| Como no notebook | 78 % | 97,0 % ± 0,5 | – | – | – |
+| Sorteio sem sobreposição (mesmas pessoas) | 0 % | 88,4 % ± 1,4 | 95 % | 93 % | 85 % |
+| Participante novo | 0 % | 82,7 % ± 7,1 | 89 % ± 5 | 88 % ± 5 | 83 % ± 6 |
+
+Os clássicos são os da tabela de resultados acima: hold-out de 20 % com a
+semente 5, e participante novo. A LSTM é a média de 3 sementes; na divisão por
+participante, o desvio é entre as oito pessoas.
+
+| Participante | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
+|---|---|---|---|---|---|---|---|---|
+| LSTM | 94 % | 86 % | 80 % | 85 % | 81 % | 69 % | 88 % | 78 % |
+| kNN | 94 % | 87 % | 84 % | 92 % | 93 % | 78 % | 92 % | 89 % |
+
+O que isso mostra:
+
+- **A sobreposição sozinha vale 9 pontos**: de 97 % para 88 %, sem mudar mais
+  nada.
+- **Com participante novo, a LSTM fica em 83 %**, abaixo do kNN (89 %) e do SVM
+  (88 %) e empatada com o LDA (83 %). A conclusão do relatório (os clássicos,
+  com um bom pré-processamento, ficam à frente da LSTM) se mantém nas divisões
+  honestas. Os números mudam: nenhum lado chega perto de 100 % ou de 97 %.
+- **A ordem das janelas não importa, o estado herdado sim.** Ler o teste em
+  ordem de gravação (vizinhas do mesmo gesto) dá o mesmo que em ordem
+  sorteada. Mas cada janela sozinha, sem estado herdado, perde de 5 a 12
+  pontos (85 %, 83 % e 77 % nas três divisões). A rede aprendeu a contar com
+  um estado vindo de outra janela, qualquer que seja. Ao vivo, com as janelas
+  chegando em sequência, ela teria esse estado, e o número a esperar é o de
+  "em ordem de gravação", igual ao da tabela.
+- O gesto 3 é o mais confundido, com o 1 e o 4. O gesto 0 acerta 97–100 %. O
+  relatório diz que a mão aberta acertou 100 %, o que sugere que o gesto 0 é a
+  mão aberta, mas não confirma.
+
+Não foi feito, e pode mudar esses números: ajustar os hiperparâmetros com uma
+validação honesta (os do notebook foram escolhidos olhando o teste com
+sobreposição) e uma LSTM que percorra o tempo dentro da janela.
 
 ## O que muda
 
 - O mestrado não muda: com 8 canais o recorte `iloc[:, :8]` pega exatamente as
   features. O porte reproduz os 0,9444 históricos
   ([INVENTARIO_MESTRADO.md](INVENTARIO_MESTRADO.md#resultados-reproduzidos)).
-- Para os dados de gestos, os números a citar são os da tabela de resultados.
+- Para os dados de gestos, os números a citar são os das tabelas acima.
   Com o sorteio da disciplina: kNN 95 %, SVM 93 %, árvore 91 %, NB 88 %,
-  LDA 85 %. Com participante novo: 83 % a 89 %.
-- Em aberto: a LSTM com divisão por participante, e o nome de cada gesto.
+  LDA 85 %, LSTM 88 %. Com participante novo: clássicos de 83 % a 89 %, LSTM
+  83 %.
+- Em aberto: o nome de cada gesto; a LSTM com hiperparâmetros escolhidos sem
+  olhar o teste e percorrendo o tempo dentro da janela.

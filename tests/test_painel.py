@@ -122,7 +122,7 @@ def test_analysis_folder_name_is_the_one_analyze_legacy_writes():
 # ------------------------------------------------------- same as scripts/menu.sh
 
 
-def _menu_command(answers: str) -> str:
+def _menu_commands(answers: str) -> list[str]:
     env = {**os.environ, "MENU_DRY_RUN": "1", "MENU_JANELA": "docker/compose.wsl.yaml"}
     r = subprocess.run(
         ["bash", str(SCRIPTS / "menu.sh")],
@@ -132,7 +132,11 @@ def _menu_command(answers: str) -> str:
         text=True,
         timeout=30,
     )
-    (line,) = [x.strip()[2:] for x in r.stdout.splitlines() if x.strip().startswith("$ ")]
+    return [x.strip()[2:] for x in r.stdout.splitlines() if x.strip().startswith("$ ")]
+
+
+def _menu_command(answers: str) -> str:
+    (line,) = _menu_commands(answers)
     return line
 
 
@@ -180,6 +184,25 @@ def test_the_course_hold_out_is_the_menu_command():
 def test_bad_parameters_are_refused(plano, params):
     with pytest.raises(painel.Recusado):
         plano(params, WSL, OPC)
+
+
+@pytest.mark.skipif(sys.platform != "linux", reason="bash script for WSL/Linux")
+def test_the_course_lstm_is_the_menu_command():
+    opc = {**OPC, "csvs": [*OPC["csvs"], "gestos_1khz.csv"]}
+    plano = painel.plano_lstm({}, WSL, opc)
+    assert plano.titulo.endswith("gestos-1khz_lstm")
+    assert [" ".join(c.argv) for c in plano.passos] == _menu_commands("12\n\n\n0\n")
+    rapido = painel.plano_lstm({"epocas": "20", "repeticoes": "1"}, WSL, opc)
+    assert rapido.passos[1].argv[-4:] == ["--epocas", "20", "--repeticoes", "1"]
+    assert rapido.titulo.endswith("gestos-1khz_lstm-e20")
+    assert [" ".join(c.argv) for c in rapido.passos] == _menu_commands("12\n20\n1\n0\n")
+
+
+def test_the_course_lstm_needs_the_gesture_data():
+    with pytest.raises(painel.Recusado, match="Gestos da disciplina"):
+        painel.plano_lstm({}, WSL, OPC)
+    with pytest.raises(painel.Recusado):
+        painel.plano_lstm({"epocas": "0"}, WSL, {**OPC, "csvs": ["gestos_1khz.csv"]})
 
 
 def test_the_gesture_data_download_pins_every_file():

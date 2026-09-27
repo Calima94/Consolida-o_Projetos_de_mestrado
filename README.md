@@ -35,6 +35,7 @@ sEMG (Myo, ou CSV gravado) ──► /emg/raw ──► emg_classifier ──►
 | Interface web: o braço pelo navegador (`web/`) | ✅ Setas e deslizadores, vista lateral 2D, comando × real, parada de emergência no controlador. Testada no Windows 11 + WSL2 + Docker Desktop contra o Gazebo sem janela. ⚠️ Linux e celular ainda não testados |
 | Análise dos resultados (a aba "Results" da tela de treino) | ✅ Figuras em PNG, validação cruzada e referência `amplitude`; conclusões em [`docs/ANALISE_RESULTADOS.md`](docs/ANALISE_RESULTADOS.md) |
 | Dados de gestos da disciplina (8 participantes, 4 canais, 1 kHz) | ✅ Download conferido, parâmetros da disciplina num clique e validação por participante; resultados em [`docs/ANALISE_GESTOS.md`](docs/ANALISE_GESTOS.md) (D25) |
+| LSTM da disciplina, refeita com divisão por participante | ✅ O notebook PyTorch reproduzido (97,0 % com a divisão dele), em imagem própria com PyTorch; um botão no painel, ~1 min (D26) |
 | Encerrar com Ctrl+C / `docker compose stop` / `scripts/stop.sh` | ✅ Sem processos sobrando (medido) |
 | Driver do Myo | ⚠️ Portado e com testes do protocolo, **mas nunca rodou com um Myo de verdade** |
 | Janelas (Gazebo e câmera) | ✅ Windows 11 + WSL2 + Docker Desktop: as janelas do Gazebo e da câmera abrem e o braço se move (renderização por software; modo espelho com o vídeo do mestrado). ⚠️ Linux com monitor só testado em display virtual (Xvfb); webcam não testada |
@@ -210,13 +211,15 @@ Nos **dados de gestos da disciplina** que veio depois (8 participantes, 5
 gestos), o sorteio da disciplina dá de 85 % (LDA) a 95 % (kNN). Treinando com
 sete pessoas e testando na oitava, dá de 83 % a 89 %. O relatório da disciplina
 tinha 100 % em quatro classificadores porque o app, com 4 canais, pegava o
-rótulo como entrada. Com os 8 canais do mestrado isso não acontece
-([`docs/ANALISE_GESTOS.md`](docs/ANALISE_GESTOS.md), achados 26 e 27).
+rótulo como entrada. Com os 8 canais do mestrado isso não acontece. A LSTM da
+disciplina, refeita igual, dá 97 % com a divisão do notebook, em que o teste
+repete janelas do treino. Sem essa repetição, dá 88 %; com participante novo,
+83 % ([`docs/ANALISE_GESTOS.md`](docs/ANALISE_GESTOS.md), achados 26 a 28).
 
 ## Estrutura
 
 ```
-docker/                     Dockerfile, compose (base, janela Linux/WSL, Docker Desktop, webcam, Myo)
+docker/                     Dockerfile, compose (base, janela Linux/WSL, Docker Desktop, webcam, Myo), Dockerfile.lstm (PyTorch)
 ros2_ws/src/
   mestrado_emg/             features, treino, protocolo do Myo, controle e nós ROS 2
   mestrado_capture/         ângulo do cotovelo (MediaPipe) e gravação rotulada
