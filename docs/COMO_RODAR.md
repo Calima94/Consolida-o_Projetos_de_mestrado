@@ -555,3 +555,7 @@ rodando (veja a tabela abaixo).
 | Página: "conectado, mas sem /joint_states" | O braço não está rodando: suba `braco` (ou `sim`) junto com `web` |
 | Página: "sem o arm_controller" | O Gazebo está de pé, mas o controlador não, ou a imagem é anterior a esta versão: reconstrua (passo 3). Sem ele, nem os comandos nem a parada têm efeito |
 | PARAR mostra "A parada NÃO foi confirmada" | O controlador não respondeu em 3 s. No simulador, pare tudo com `./scripts/stop.sh`. Com braço físico, corte a alimentação |
+
+---
+
+*Redigido predominantemente por Claude (Anthropic), via Claude Code, a pedido do Caio Lima (declaração de uso de IA: Portaria CNPq nº 2.664/2026, D28). Aprovação: Caio Lima, pelo merge dos PRs.*

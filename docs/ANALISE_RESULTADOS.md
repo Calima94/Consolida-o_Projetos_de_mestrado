@@ -281,3 +281,7 @@ faltou:
 5. **Gravar o ângulo contínuo** (`CONTINUOUS=true` na captura). É o dado de
    que a regressão contínua do `semg-digital-twins` precisa, e dispensa
    categorias.
+
+---
+
+*Redigido predominantemente por Claude (Anthropic), via Claude Code, a pedido do Caio Lima (declaração de uso de IA: Portaria CNPq nº 2.664/2026, D28). Aprovação: Caio Lima, pelo merge dos PRs.*

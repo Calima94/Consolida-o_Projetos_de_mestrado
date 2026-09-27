@@ -318,3 +318,7 @@ Cada item custou tempo real. Não desfaça sem um teste novo que justifique.
 7. braço físico
 
 Cada etapa deve funcionar sozinha antes da seguinte começar.
+
+---
+
+*Redigido predominantemente por Claude (Anthropic), via Claude Code, a pedido do Caio Lima (declaração de uso de IA: Portaria CNPq nº 2.664/2026, D28). Aprovação: Caio Lima, pelo merge dos PRs.*
