@@ -36,11 +36,34 @@ VERSION = "1.0"  # pinned: adopting a new Dataverse version is a deliberate chan
 REPO = Path(__file__).resolve().parents[1]
 
 
-def list_vicon_files() -> list[dict]:
+def retrying(what: str, action, retries: int = 4):
+    """``action()``, tried again after 2, 4, 8 and 16 s when it raises.
+
+    Dataverse is a remote server: one timeout (seen in CI while listing the
+    files) should not end the download.
+    """
+    for attempt in range(retries + 1):
+        try:
+            return action()
+        except Exception as exc:  # network errors and bad checksums are retried
+            if attempt == retries:
+                raise
+            wait = 2 ** (attempt + 1)
+            print(f"  retry {attempt + 1} for {what} in {wait}s ({exc})", file=sys.stderr)
+            time.sleep(wait)
+    raise AssertionError("unreachable")
+
+
+def list_vicon_files(retries: int = 4) -> list[dict]:
     """Vicon file records of the pinned version: id, path, size, md5."""
     url = f"{SERVER}/api/datasets/:persistentId/versions/{VERSION}?persistentId={DOI}"
-    with urllib.request.urlopen(url, timeout=120) as r:  # noqa: S310 (fixed https host)
-        data = json.loads(r.read())["data"]
+
+    def get() -> dict:
+        with urllib.request.urlopen(url, timeout=120) as r:  # noqa: S310 (fixed https host)
+            return json.loads(r.read())["data"]
+
+    data = retrying("the file list", get, retries)
+    # the version check stays outside the retries: a wrong version stays wrong
     got = f"{data['versionNumber']}.{data['versionMinorNumber']}"
     if got != VERSION:
         raise RuntimeError(f"Dataverse returned version {got}, expected {VERSION}")
@@ -92,23 +115,18 @@ def fetch(f: dict, root: Path, retries: int = 4) -> bool:
     dest.parent.mkdir(parents=True, exist_ok=True)
     tmp = dest.with_name(dest.name + ".part")
     url = f"{SERVER}/api/access/datafile/{f['id']}?format=original"
-    for attempt in range(retries + 1):
-        try:
-            with urllib.request.urlopen(url, timeout=300) as r, open(tmp, "wb") as out:  # noqa: S310
-                while chunk := r.read(1 << 20):
-                    out.write(chunk)
-            got = md5_of(tmp)
-            if not md5_ok(got, f["md5"]):
-                raise RuntimeError(f"MD5 mismatch for {f['path']}: {got} != {f['md5']}")
-            tmp.replace(dest)
-            return True
-        except Exception as exc:  # network errors and bad checksums are retried
-            if attempt == retries:
-                raise
-            wait = 2 ** (attempt + 1)
-            print(f"  retry {attempt + 1} for {f['path']} in {wait}s ({exc})", file=sys.stderr)
-            time.sleep(wait)
-    raise AssertionError("unreachable")
+
+    def get() -> bool:
+        with urllib.request.urlopen(url, timeout=300) as r, open(tmp, "wb") as out:  # noqa: S310
+            while chunk := r.read(1 << 20):
+                out.write(chunk)
+        got = md5_of(tmp)
+        if not md5_ok(got, f["md5"]):
+            raise RuntimeError(f"MD5 mismatch for {f['path']}: {got} != {f['md5']}")
+        tmp.replace(dest)
+        return True
+
+    return retrying(f["path"], get, retries)
 
 
 def main(argv: list[str] | None = None) -> int:
