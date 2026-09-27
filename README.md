@@ -23,7 +23,7 @@ sEMG (Myo, ou CSV gravado) ──► /emg/raw ──► emg_classifier ──►
 
 | | Situação |
 |---|---|
-| Pipeline de features (filtros, wavelet, MAV/RMS) | ✅ Idêntico ao código original (diferença < 1e-9, testado contra cópia literal) |
+| Pipeline de features (filtros, wavelet, MAV/RMS) | ✅ Idêntico ao código original (diferença < 1e-9, testado contra cópia literal). Wavelet-mãe, níveis, camadas e janela voltaram a ser escolhas, com um modo em que a escolha de camadas funciona de fato (D23) |
 | Treino dos 5 classificadores | ✅ Reproduz exatamente os scores históricos (0,9444 nos cinco) |
 | Braço no Gazebo Jetty | ✅ Massas, geometria e juntas do mestrado; controle P com os kp originais (resposta de 1ª ordem medida: 63 % em 1 s com kp = 1) |
 | Fluxo completo sem hardware (CSV → classificador → braço) | ✅ Teste de ponta a ponta no CI |

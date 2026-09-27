@@ -243,3 +243,33 @@ desliga o sistema, as guias o operam. Escolhas:
 
 *Rever se* o painel precisar ficar acessível pela rede (por exemplo, no Pi): aí
 ele precisa de autenticação, como o `rosbridge`.
+
+**D23. Wavelet, níveis, camadas e janela voltam a ser escolhas.** A tela de
+treino do mestrado deixava escolher a wavelet-mãe (campo livre, `db7`), os
+níveis (1 a 4), as "layers to use" (1 a 4, isto é, as camadas 1..n) e a janela;
+o porte tinha fixado tudo no padrão. Agora `train_legacy` e `analyze_legacy`
+aceitam `--wavelet`, `--levels`, `--wavelet-mode`, `--layers`, `--approx` e
+`--window-ms`, e o painel e o menu oferecem as mesmas escolhas. Os modelos
+guardam a configuração, e o classificador ao vivo usa a do modelo (achado 2).
+
+- **Dois modos de camadas.** `legacy` (padrão) reproduz o laço do mestrado, em
+  que a escolha de camadas não faz efeito e só o D*n* é zerado (achado 4); é o
+  que reproduz os modelos e os números históricos. `bands` mantém exatamente as
+  camadas escolhidas (1 = a mais fina, `fs/4..fs/2`) e, se pedido, a
+  aproximação, e zera o resto antes do MAV/RMS. É o que a tela prometia.
+- **Nomes que não se sobrescrevem.** Escolhas diferentes das do mestrado viram
+  um rótulo no nome de modelos, relatórios e pastas de análise
+  (`..._temporal_sym4-n2-D12_latest.joblib`). Com as escolhas do mestrado os
+  nomes não mudam, então os launch files e o menu seguem funcionando.
+- **O nível útil é avisado, não imposto.** A db7 em janelas de 50 amostras só
+  tem 1 nível útil (achado 25), mas o mestrado usava 4, então 4 continua
+  permitido, com aviso.
+
+Medido no `6_10_20220.csv` (CV temporal, 5 partições): o mestrado dá k-NN 0,98;
+faixas D1+D2 com db7, 1,00; só D1, 0,95; db4 com 2 níveis e D1+D2, 0,98; haar
+com D1 a D3, 0,98. A referência de amplitude fica entre 0,95 e 0,98 em todos.
+Neste conjunto a escolha pouco importa, porque um único nível de amplitude já
+separa as classes ([ANALISE_RESULTADOS.md](ANALISE_RESULTADOS.md)); ela deve
+pesar em gravações com mais categorias ou com ângulo contínuo. *Rever se* for
+preciso escolher também os filtros IIR ou a taxa (a tela tinha os arquivos dos
+filtros; hoje isso existe só em `LegacyFeatureConfig.for_sensor`).

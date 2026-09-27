@@ -323,6 +323,30 @@ do gráfico de dispersão). Se o comando não existir, a imagem é de antes dest
 versão: reconstrua (passo 3). O que esses resultados querem dizer está em
 [`ANALISE_RESULTADOS.md`](ANALISE_RESULTADOS.md).
 
+**Wavelet, níveis, camadas e janela**, como na tela de treino do mestrado,
+valem para `train_legacy` e `analyze_legacy`. No painel, ficam em "Parâmetros
+do sinal"; no menu, respondendo `s` a "ajustar janela e wavelet?". Por exemplo:
+
+```bash
+docker compose -f docker/compose.yaml run --rm train \
+  ros2 run mestrado_emg train_legacy /data/6_10_20220.csv --out /models \
+  --wavelet sym4 --levels 2 --wavelet-mode bands --layers 1 2
+```
+
+- `--wavelet` aceita as wavelets discretas do PyWavelets (`db7`, `sym4`,
+  `coif2`, `haar`...); `--levels`, os níveis da decomposição; `--window-ms`, a
+  janela (padrão 250 ms).
+- `--wavelet-mode legacy` (padrão) repete o código do mestrado, em que a
+  escolha de camadas não faz efeito e só a camada mais grossa é removida.
+  `--wavelet-mode bands` mantém só as camadas de `--layers` (1 = a mais fina:
+  50–100 Hz a 200 amostras/s; 2 = 25–50 Hz; e assim por diante) e, com
+  `--approx`, também a aproximação.
+- Escolhas diferentes das do mestrado entram no nome dos modelos e da pasta da
+  análise (`..._sym4-n2-D12`), então não apagam os resultados do mestrado. O
+  classificador usa na simulação os parâmetros com que foi treinado.
+- Se os níveis passarem do que a janela comporta, o comando avisa: a db7 em
+  janelas de 250 ms só tem 1 nível útil (o mestrado usava 4).
+
 ### 7. Modo espelho: o braço do Gazebo copia o seu
 
 Não precisa de sEMG. Com o **vídeo gravado no mestrado**:
