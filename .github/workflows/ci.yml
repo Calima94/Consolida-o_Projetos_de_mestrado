@@ -57,7 +57,18 @@ jobs:
         run: >
           docker run --rm --init -v "$PWD/data:/data" -v "$PWD/scripts:/scripts"
           mestrado-ros:lyrical /scripts/capture_test.sh
+      # The trial is pinned (Dataverse version 1.0, MD5 checked when downloaded), so a
+      # cached copy is the same file. Some runners cannot reach dataverse.iit.it at all
+      # (PRs #9 and #11: five timeouts in a row over 10 min, while other runners got it),
+      # so the download only runs when the cache is empty.
+      - name: Cache the Reach&Grasp trial
+        id: reach-grasp
+        uses: actions/cache@v6
+        with:
+          path: data/reach_grasp
+          key: reach-grasp-v1.0-sub-01-ReaCyl
       - name: Fetch one Reach&Grasp trial (IIT Dataverse, MD5 checked)
+        if: steps.reach-grasp.outputs.cache-hit != 'true'
         run: ./scripts/fetch_reach_grasp.py --subjects 1 --tasks ReaCyl
       - name: End-to-end movement replay (recorded human elbow -> Gazebo arm)
         run: >
