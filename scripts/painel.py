@@ -56,11 +56,12 @@ MYO = "docker/compose.myo.yaml"
 CAMERA = "docker/compose.camera.yaml"
 
 # Services that run Gazebo or publish sEMG: only one of them at a time.
-PRINCIPAIS = {"braco", "sim", "espelho", "captura", "shell"}
+PRINCIPAIS = {"braco", "sim", "espelho", "movimento", "captura", "shell"}
 NOMES = {
     "braco": "o braço",
     "sim": "o sistema completo",
     "espelho": "o modo espelho",
+    "movimento": "o movimento real",
     "captura": "a captura",
     "shell": "um terminal do projeto (talvez o Gazebo do menu)",
 }
@@ -69,6 +70,10 @@ VIDEOS = {".avi", ".mp4", ".mkv", ".mov"}
 CSV_PADRAO = "6_10_20220.csv"
 MODELO_PADRAO = "knn_6-10-20220_mav_temporal_latest.joblib"
 VIDEO_PADRAO = "test_2_05.avi"  # saved already mirrored by the thesis tool
+MOVIMENTO_PADRAO = "01/ReaCyl"  # Reach&Grasp subject/task (docs/DECISOES.md, D27)
+MOVIMENTO_RE = re.compile(r"sub-(\d\d)_task-([A-Za-z]+)_acq-vicon_motion\.csv")
+# The Reach&Grasp tasks that move the elbow (data contract of semg-digital-twins).
+TAREFAS_COTOVELO = ["FroRea", "ReaCyl", "ReaSph", "Pour", "Screw", "EatFruit"]
 ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
 MAX_LINHAS = 5000
 
@@ -226,12 +231,18 @@ def opcoes(repo: Path) -> dict:
     modelos = sorted(p.name for p in models.glob("*_latest.joblib"))
     analises = sorted(p.name for p in (models / "analise").glob("*") if p.is_dir())
     filtros = sorted(p.name for p in (data / "filtros").glob("*") if p.suffix.lower() in FILTROS)
+    movimentos = sorted(
+        f"{m.group(1)}/{m.group(2)}"
+        for p in (data / "reach_grasp").glob("sub-*/motion/*_acq-vicon_motion.csv")
+        if (m := MOVIMENTO_RE.fullmatch(p.name))
+    )
     return {
         "csvs": csvs,
         "videos": videos,
         "modelos": modelos,
         "analises": analises,
         "filtros": filtros,
+        "movimentos": movimentos,
         "gravacoes": {nome: info_gravacao(data / nome) for nome in csvs},
     }
 
@@ -370,6 +381,32 @@ def plano_espelho(p: dict, amb: Ambiente, opc: dict) -> Plano:
         "Modo espelho",
         [Comando([*c, "up", "-d", *servicos], env), _seguir(c, ["espelho"])],
         alvo="espelho",
+    )
+
+
+def plano_movimento(p: dict, amb: Ambiente, opc: dict) -> Plano:
+    """A Reach&Grasp elbow recording replayed on the Gazebo arm (compose `movimento`)."""
+    if not opc["movimentos"]:
+        raise Recusado(
+            "Não há movimentos em data/reach_grasp: use Manutenção → Dados → Movimentos reais."
+        )
+    padrao = MOVIMENTO_PADRAO if MOVIMENTO_PADRAO in opc["movimentos"] else opc["movimentos"][0]
+    sujeito, tarefa = _escolha(p, "movimento", opc["movimentos"], padrao).split("/")
+    janela = _janela(p, amb, True)
+    pagina = _bool(p, "pagina", False)
+    c = _compose(BASE, amb.janela if janela else None, DESKTOP if pagina and amb.desktop else None)
+    env = {
+        "SUBJECT": str(int(sujeito)),
+        "TASK": tarefa,
+        "SPEED": _num(p, "velocidade", 1.0, 0.1, 4.0),
+        "LOOP": _tf(_bool(p, "repetir", True)),
+        "GUI": _tf(janela),
+    }
+    servicos = ["movimento", "web"] if pagina else ["movimento"]
+    return Plano(
+        "Movimento real",
+        [Comando([*c, "up", "-d", *servicos], env), _seguir(c, ["movimento"])],
+        alvo="movimento",
     )
 
 
@@ -607,12 +644,18 @@ ACOES: dict[str, tuple[Construtor, bool]] = {
     "braco": (plano_braco, True),
     "sistema": (plano_sistema, True),
     "espelho": (plano_espelho, True),
+    "movimento": (plano_movimento, True),
     "parar_braco": (_parar("Parar o braço", ["braco", "web", "web-portas"]), True),
     "parar_sistema": (_parar("Parar o sistema completo", ["sim", "web", "web-portas"]), True),
     "parar_espelho": (_parar("Parar o modo espelho", ["espelho", "web", "web-portas"]), True),
+    "parar_movimento": (
+        _parar("Parar o movimento real", ["movimento", "web", "web-portas"]),
+        True,
+    ),
     "ver_braco": (_ver("Saída do braço", "braco"), True),
     "ver_sistema": (_ver("Saída do sistema completo", "sim"), True),
     "ver_espelho": (_ver("Saída do modo espelho", "espelho"), True),
+    "ver_movimento": (_ver("Saída do movimento real", "movimento"), True),
     "captura": (plano_captura, True),
     "treino": (plano_treino, True),
     "analise": (plano_analise, True),
@@ -624,6 +667,17 @@ ACOES: dict[str, tuple[Construtor, bool]] = {
     "dados": (_script("Baixar os dados do mestrado", "scripts/fetch_legacy_data.sh"), False),
     "dados_gestos": (
         _script("Baixar os dados de gestos da disciplina", "scripts/fetch_gesture_data.sh"),
+        False,
+    ),
+    "dados_movimento": (
+        _script(
+            "Baixar movimentos reais (Reach&Grasp)",
+            "scripts/fetch_reach_grasp.py",
+            "--subjects",
+            "1",
+            "--tasks",
+            *TAREFAS_COTOVELO,
+        ),
         False,
     ),
     "imagem": (_script("Construir a imagem", "docker", "compose", "-f", BASE, "build"), True),

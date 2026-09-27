@@ -308,6 +308,34 @@ opt_capture() {
   echo "  O CSV gravado fica em data/captura_<data><n>.csv"
 }
 
+opt_fetch_movement() {
+  local subjects tasks
+  ask subjects "sujeitos (1 a 10, separados por espaço; 'todos' = os 10)" "1"
+  ask tasks "tarefas ('todas' = as 16; o padrão são as seis que mexem o cotovelo)" \
+    "FroRea ReaCyl ReaSph Pour Screw EatFruit"
+  local -a args=()
+  # shellcheck disable=SC2206  # the lists are space-separated words on purpose
+  [ "$subjects" != todos ] && args+=(--subjects $subjects)
+  # shellcheck disable=SC2206
+  [ "$tasks" != todas ] && args+=(--tasks $tasks)
+  run scripts/fetch_reach_grasp.py "${args[@]}"
+}
+
+opt_movement() {
+  local subject task speed loop
+  local -a win
+  choose subject "sujeito do Reach&Grasp:" "1" 1 2 3 4 5 6 7 8 9 10
+  choose task "tarefa (as seis primeiras mexem o cotovelo):" "ReaCyl" \
+    ReaCyl ReaSph FroRea Pour Screw EatFruit HO HC WF WE WP WS Thumb Cyl Sph Trid
+  ask speed "velocidade (1.0 = tempo real)" "1.0"
+  choose loop "repetir ao terminar?" "true" true false
+  read -r -a win <<<"$(window_files)"
+  local gui=true
+  [ "${#win[@]}" -gt 0 ] || gui=false
+  run env "SUBJECT=$subject" "TASK=$task" "SPEED=$speed" "LOOP=$loop" "GUI=$gui" \
+    docker compose "${BASE[@]}" "${win[@]}" up movimento
+}
+
 menu() {
   cat <<EOF
 
@@ -325,6 +353,8 @@ menu() {
   10) Encerrar tudo que estiver rodando
   11) Baixar os dados de gestos da disciplina (1 kHz, 8 participantes)
   12) Refazer a LSTM da disciplina (divisão por participante)
+  13) Baixar movimentos reais do cotovelo (Reach&Grasp, Vicon)
+  14) Movimento real: o braço repete um cotovelo humano gravado
    0) Sair
 EOF
 }
@@ -346,6 +376,8 @@ while true; do
     10) run scripts/stop.sh ;;
     11) run scripts/fetch_gesture_data.sh ;;
     12) opt_lstm ;;
+    13) opt_fetch_movement ;;
+    14) opt_movement ;;
     0 | q | sair) exit 0 ;;
     "") ;;
     *) echo "  opção inválida: $choice" ;;

@@ -57,3 +57,9 @@ jobs:
         run: >
           docker run --rm --init -v "$PWD/data:/data" -v "$PWD/scripts:/scripts"
           mestrado-ros:lyrical /scripts/capture_test.sh
+      - name: Fetch one Reach&Grasp trial (IIT Dataverse, MD5 checked)
+        run: ./scripts/fetch_reach_grasp.py --subjects 1 --tasks ReaCyl
+      - name: End-to-end movement replay (recorded human elbow -> Gazebo arm)
+        run: >
+          docker run --rm --init -v "$PWD/data:/data" -v "$PWD/scripts:/scripts"
+          mestrado-ros:lyrical /scripts/movement_test.sh

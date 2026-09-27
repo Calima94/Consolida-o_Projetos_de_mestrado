@@ -86,3 +86,22 @@ def test_stop_and_check_options_call_the_scripts():
 def test_invalid_option_and_eof_do_not_hang():
     out = _menu("99\n")
     assert "opção inválida: 99" in out
+
+
+def test_movement_download_defaults_to_the_elbow_tasks_of_subject_1():
+    (cmd,) = _commands(_menu("13\n\n\n0\n"))
+    assert cmd == (
+        "scripts/fetch_reach_grasp.py --subjects 1 --tasks FroRea ReaCyl ReaSph Pour Screw EatFruit"
+    )
+    (cmd,) = _commands(_menu("13\ntodos\ntodas\n0\n"))
+    assert cmd == "scripts/fetch_reach_grasp.py"
+
+
+def test_movement_replay_passes_every_field():
+    (cmd,) = _commands(_menu("14\n4\nEatFruit\n0.5\nfalse\n0\n"))
+    assert cmd == (
+        "env SUBJECT=4 TASK=EatFruit SPEED=0.5 LOOP=false GUI=true "
+        "docker compose -f docker/compose.yaml -f docker/compose.wsl.yaml up movimento"
+    )
+    (cmd,) = _commands(_menu("14\n\n\n\n\n0\n", janela=""))
+    assert "GUI=false" in cmd and "compose.wsl.yaml" not in cmd

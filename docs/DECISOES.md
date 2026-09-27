@@ -345,3 +345,34 @@ abaixo do kNN (89 %) e do SVM (88 %) na mesma divisão
 percorra o tempo dentro da janela, ou hiperparâmetros escolhidos com
 validação honesta: aí o módulo ganha uma opção, e a reprodução fiel continua
 sendo o padrão.
+
+**D27. Movimento real: um cotovelo humano gravado move o braço do Gazebo.**
+O modo `movimento` (compose, painel, menu) lê o ângulo do cotovelo de um
+ensaio do **Reach&Grasp** (Di Domenico et al., *Scientific Data* 12, 233,
+2025; IIT Dataverse, [doi:10.48557/L6OWMM](https://doi.org/10.48557/L6OWMM),
+versão 1.0, CC BY 4.0) e o publica como alvo em `/arm/elbow/cmd_pos`, no ritmo
+da gravação (100 Hz). É o dataset principal do `semg-digital-twins` (ADR-007),
+descrito no contrato de dados de lá (`docs/DATA_CONTRACT_REACH_GRASP.md`).
+
+- **Por quê:** o gêmeo digital passa a funcionar com dados que já existem, sem
+  sEMG, sem modelo e sem hardware, e com o mesmo alvo que a regressão contínua
+  vai ter de prever.
+- **Alvo:** `RElbow_X`, em graus, convertido direto para radianos, porque o
+  cotovelo do simulador também é 0 quando estendido. Não há a inversão de
+  180° − ângulo usada para a câmera.
+- **Convenção não confirmada:** o contrato de dados mede que alcançar diminui
+  o ângulo e levar à boca o aumenta, compatível com 0° = estendido, mas não
+  achou a confirmação na documentação do Plug-in-Gait. Ver o braço esticar ao
+  alcançar é a conferência visual.
+- **Lacunas:** nas amostras em que o Vicon perdeu o cotovelo (9 dos 160
+  ensaios, até 3,5 % delas), o alvo anterior é mantido. Nada é interpolado, e
+  o log diz quantas foram.
+- **Dados fora do git:** `scripts/fetch_reach_grasp.py` baixa só a cinemática
+  (~2 MB por ensaio, ~280 MB tudo), fixa a versão 1.0 e confere o MD5 que o
+  Dataverse publica. Usa só a biblioteca padrão.
+- **Medido:** o controle do mestrado deixa o braço 0,7 a 0,8 s atrás da pessoa
+  e corta os picos (achado 29). Isso fica como está, por fidelidade.
+
+*Rever se* a convenção angular for desmentida, ou se o gêmeo digital precisar
+seguir o braço em tempo real (aí o controle muda, em decisão própria).
+
