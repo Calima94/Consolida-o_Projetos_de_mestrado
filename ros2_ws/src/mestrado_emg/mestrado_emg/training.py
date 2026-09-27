@@ -90,7 +90,7 @@ class WindowDataset:
     class_labels: list
 
 
-def load_legacy_csv(path: str | Path) -> tuple[np.ndarray, np.ndarray]:
+def load_legacy_csv(path: str | Path, with_groups: bool = False) -> tuple:
     """Read a Capture_EMG_Data CSV the same way ``read_data`` did.
 
     Column names are stripped and lower-cased; channel columns are those
@@ -102,7 +102,8 @@ def load_legacy_csv(path: str | Path) -> tuple[np.ndarray, np.ndarray]:
     -------
     tuple of np.ndarray
         ``samples`` with shape ``[n_samples, n_channels]`` and ``labels`` with
-        shape ``[n_samples]``.
+        shape ``[n_samples]``; with ``with_groups``, also the ``participante``
+        column (or None when the file has none).
     """
     df = pd.read_csv(path)
     df.columns = df.columns.str.strip().str.lower()
@@ -112,7 +113,10 @@ def load_legacy_csv(path: str | Path) -> tuple[np.ndarray, np.ndarray]:
     # Label 0 = "outside every category", written only by the capture tool's
     # continuous mode (mestrado_capture); it is not a class.
     df = df[df[df.columns[-1]] != 0]
-    return df[channel_cols].to_numpy(dtype=float), df[df.columns[-1]].to_numpy()
+    out = (df[channel_cols].to_numpy(dtype=float), df[df.columns[-1]].to_numpy())
+    if with_groups:  # who recorded each row, when the file says (scripts/fetch_gesture_data.sh)
+        return (*out, df["participante"].to_numpy() if "participante" in df.columns else None)
+    return out
 
 
 def build_dataset(

@@ -270,6 +270,47 @@ faixas D1+D2 com db7, 1,00; só D1, 0,95; db4 com 2 níveis e D1+D2, 0,98; haar
 com D1 a D3, 0,98. A referência de amplitude fica entre 0,95 e 0,98 em todos.
 Neste conjunto a escolha pouco importa, porque um único nível de amplitude já
 separa as classes ([ANALISE_RESULTADOS.md](ANALISE_RESULTADOS.md)); ela deve
-pesar em gravações com mais categorias ou com ângulo contínuo. *Rever se* for
-preciso escolher também os filtros IIR ou a taxa (a tela tinha os arquivos dos
-filtros; hoje isso existe só em `LegacyFeatureConfig.for_sensor`).
+pesar em gravações com mais categorias ou com ângulo contínuo. A taxa e os
+filtros IIR vieram depois (D24).
+
+**D24. Taxa de amostragem e filtros IIR também são escolhas.** A tela do
+mestrado tinha a frequência de captura e os arquivos dos dois filtros. Agora
+`--fs` e `--filters legacy|design|files` fazem o mesmo em `train_legacy` e
+`analyze_legacy`, e o painel e o menu oferecem as duas escolhas. O número de
+canais vem do cabeçalho do CSV.
+
+- **Os coeficientes do mestrado continuam o padrão**, mesmo em outra taxa,
+  porque é o que a tela fazia e o que a disciplina usou. Foram projetados para
+  200 Hz: a 1000 Hz o passa-altas vai de ~14 para ~71 Hz e o rejeita-faixa de
+  60 para ~300 Hz. O terminal e o painel avisam e mostram onde eles cortam.
+- **`design`** calcula, para a taxa escolhida, um Butterworth passa-altas de
+  4ª ordem e um rejeita-faixa de 2ª ordem em torno da rede (60 ou 50 Hz, ou
+  nenhum).
+- **`files`** lê SOS de `data/filtros/`: o CSV do app do mestrado, 6 números
+  por linha, JSON ou `.npy`. Recusa arquivo sem 6 colunas, com `a0` zero ou
+  com polo fora do círculo unitário: um filtro instável faria o treino
+  terminar em NaN sem dizer por quê.
+- O painel mede a taxa pela coluna `time` e oferece "Usar ... Hz" quando ela
+  difere da escolhida. Taxa, filtros e canais entram no nome dos modelos e das
+  pastas (`fs1000-c4-hp20-rf60`).
+
+**D25. Os dados de gestos da disciplina entram no projeto, com validação por
+participante.** A disciplina de Deep Learning (PPGINF) usou o app do mestrado
+nos dados de Toro-Ossaba et al. (2022): 8 participantes, 5 gestos, 4 canais a
+1000 Hz. `scripts/fetch_gesture_data.sh` os baixa com SHA-256 conferido e
+grava um CSV só, com a coluna `participante`. No painel, "Como na disciplina"
+preenche os parâmetros usados lá, e "Parte de teste (%)" dá o `--test-size`.
+
+- **A validação por participante aparece quando o CSV diz quem gravou.**
+  Treina com todos os outros e testa em cada participante: funciona em quem
+  não gravou dados de treino? Hold-out e as outras CVs continuam iguais, para
+  a reprodução da disciplina não mudar.
+- **O rótulo é texto (`gesto_0`...)**, porque o treino descarta o rótulo 0
+  ("fora de toda categoria" na captura). Os nomes dos gestos não estão nos
+  dados nem nos notebooks.
+- Resultado: 85–95 % com o sorteio da disciplina e 83–89 % com participante
+  novo, não os 100 % relatados (achado 26). Detalhes em
+  [ANALISE_GESTOS.md](ANALISE_GESTOS.md).
+
+*Rever se* a LSTM for refeita: ela deve usar a mesma divisão por participante
+(achado 27).

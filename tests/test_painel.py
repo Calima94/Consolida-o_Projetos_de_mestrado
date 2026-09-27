@@ -4,6 +4,7 @@ unsafe requests, and run tasks. Standard library only; no Docker needed."""
 import importlib.util
 import json
 import os
+import re
 import subprocess
 import sys
 import threading
@@ -138,14 +139,25 @@ def _menu_command(answers: str) -> str:
 @pytest.mark.skipif(sys.platform != "linux", reason="bash script for WSL/Linux")
 def test_training_is_the_menu_command():
     (cmd,) = painel.plano_treino({}, WSL, OPC).passos
-    assert " ".join(cmd.argv) == _menu_command("4\n\n\n\n\n0\n")
+    assert " ".join(cmd.argv) == _menu_command("4\n\n\n\n\n\n0\n")
 
 
 @pytest.mark.skipif(sys.platform != "linux", reason="bash script for WSL/Linux")
 def test_analysis_is_the_menu_command():
     p = {"feature": "rms", "divisao": "legacy", "semente": "7", "particoes": "3", "canais": "3 4"}
     (cmd,) = painel.plano_analise(p, WSL, OPC).passos
-    assert " ".join(cmd.argv) == _menu_command("5\n\nrms\nlegacy\n7\n3\n3 4\n0\n")
+    assert " ".join(cmd.argv) == _menu_command("5\n\nrms\nlegacy\n7\n\n3\n3 4\n0\n")
+
+
+@pytest.mark.skipif(sys.platform != "linux", reason="bash script for WSL/Linux")
+def test_the_course_hold_out_is_the_menu_command():
+    """20 % of test windows, as the course project ran the thesis app."""
+    p = {"feature": "rms", "divisao": "legacy", "semente": "5", "teste": "20"}
+    (treino,) = painel.plano_treino(p, WSL, OPC).passos
+    assert "--seed 5 --test-size 0.2" in " ".join(treino.argv)
+    assert " ".join(treino.argv) == _menu_command("4\n\nrms\nlegacy\n5\n20\n0\n")
+    (analise,) = painel.plano_analise(p, WSL, OPC).passos
+    assert " ".join(analise.argv) == _menu_command("5\n\nrms\nlegacy\n5\n20\n\n\n0\n")
 
 
 # ------------------------------------------------------------------ refusals
@@ -157,6 +169,7 @@ def test_analysis_is_the_menu_command():
         (painel.plano_treino, {"csv": "../../etc/passwd"}),
         (painel.plano_treino, {"csv": "nao_existe.csv"}),
         (painel.plano_treino, {"semente": "42; rm -rf /"}),
+        (painel.plano_treino, {"teste": "80"}),
         (painel.plano_analise, {"canais": "1 9"}),
         (painel.plano_captura, {"tolerancia": "muito"}),
         (painel.plano_captura, {"categorias": "5"}),
@@ -167,6 +180,18 @@ def test_analysis_is_the_menu_command():
 def test_bad_parameters_are_refused(plano, params):
     with pytest.raises(painel.Recusado):
         plano(params, WSL, OPC)
+
+
+def test_the_gesture_data_download_pins_every_file():
+    construir, precisa_docker = painel.ACOES["dados_gestos"]
+    (cmd,) = construir({}, WSL, OPC).passos
+    assert cmd.argv == ["scripts/fetch_gesture_data.sh"] and not precisa_docker
+    texto = (SCRIPTS / "fetch_gesture_data.sh").read_text()
+    linhas = re.findall(r'^  "(\d) (\d) (\S+) ([0-9a-f]{64})"$', texto, re.M)
+    assert sorted((p, g) for p, g, *_ in linhas) == [
+        (str(p), str(g)) for p in range(1, 9) for g in range(5)
+    ]
+    assert len({drive_id for _, _, drive_id, _ in linhas}) == 40
 
 
 def test_missing_data_says_what_to_do():
@@ -442,9 +467,9 @@ def test_bad_rate_or_filter_choices_are_refused(p):
 
 @pytest.mark.skipif(sys.platform != "linux", reason="bash script for WSL/Linux")
 def test_the_menu_asks_the_same_signal_choices():
-    menu = _menu_command("4\n\n\n\n\ns\n\n\n300\nsym4\n2\nfaixas\n1\ns\n0\n")
+    menu = _menu_command("4\n\n\n\n\n\ns\n\n\n300\nsym4\n2\nfaixas\n1\ns\n0\n")
     assert menu.endswith("--seed 42 " + " ".join(NOVO_ARGS))
-    gestos = _menu_command("4\n\n\n\n\ns\n1000\nprojetados\n20\n60\n200\n\n\n\n0\n")
+    gestos = _menu_command("4\n\n\n\n\n\ns\n1000\nprojetados\n20\n60\n200\n\n\n\n0\n")
     assert gestos.endswith("--seed 42 " + " ".join(painel._sinal(GESTOS)[0]))
 
 

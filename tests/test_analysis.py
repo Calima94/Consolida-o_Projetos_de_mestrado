@@ -76,6 +76,26 @@ def test_analyze_writes_every_figure_and_the_amplitude_reference(tmp_path):
     assert set(report["cv"]) == {"temporal", "shuffled"}
     assert json.loads((out / "analise.json").read_text())["seed"] == 42
     assert "| amplitude |" in (out / "resumo.md").read_text()
+    assert report["cv_participante"] is None  # the thesis files are one person's
+
+
+def test_participant_validation_when_the_file_says_who_recorded(tmp_path):
+    """The gesture set of scripts/fetch_gesture_data.sh: a participante column."""
+    frames = []
+    for pessoa in (1, 2, 3):
+        df = pd.read_csv(_synthetic_csv(tmp_path / f"p{pessoa}.csv", (300, 300), seed=pessoa))
+        df.insert(len(df.columns) - 1, "participante", pessoa)
+        frames.append(df)
+    csv = tmp_path / "gestos.csv"
+    pd.concat(frames).to_csv(csv, index=False)
+    report = analyze(csv, tmp_path / "out", LegacyFeatureConfig(), n_folds=3)
+    grupos = report["cv_participante"]
+    assert grupos["participantes"] == ["1", "2", "3"]
+    assert set(grupos["acc"]) == set(report["holdout"])
+    assert all(len(v) == 3 for v in grupos["acc"].values())
+    assert min(grupos["acc"]["lda"]) > 0.9  # amplitude separates the classes for everybody
+    resumo = (tmp_path / "out" / "gestos_mav_temporal" / "resumo.md").read_text()
+    assert "participante novo" in resumo and "(1, 2, 3)" in resumo
 
 
 def test_analyze_rejects_a_channel_out_of_range(tmp_path):

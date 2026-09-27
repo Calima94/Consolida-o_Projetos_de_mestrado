@@ -162,16 +162,26 @@ ask_signal() {
   fi
 }
 
+# Share of the windows kept for the hold-out test, in percent. Fills TEST_ARGS
+# only when it is not the thesis's 30 % (the course project used 20 %).
+ask_test_size() {
+  local pct
+  ask pct "parte de teste (%)" "30"
+  TEST_ARGS=()
+  [ "$pct" = 30 ] || TEST_ARGS=(--test-size "$(awk -v p="$pct" 'BEGIN { print p / 100 }')")
+}
+
 opt_train() {
   local csv feature split seed
   pick_csv csv
   choose feature "feature:" "mav" mav rms
   choose split "divisão treino/teste:" "temporal" temporal legacy
   ask seed "semente" "42"
+  ask_test_size
   ask_signal
   run docker compose "${BASE[@]}" run --rm train \
     ros2 run mestrado_emg train_legacy "/data/$csv" --out /models \
-    --feature "$feature" --split "$split" --seed "$seed" "${SIGNAL_ARGS[@]}"
+    --feature "$feature" --split "$split" --seed "$seed" "${TEST_ARGS[@]}" "${SIGNAL_ARGS[@]}"
   echo "  Modelos em models/, com o nome <classificador>_<arquivo>_${feature}_${split}[_<ajustes>]_latest.joblib"
 }
 
@@ -181,14 +191,15 @@ opt_analyze() {
   choose feature "feature:" "mav" mav rms
   choose split "divisão treino/teste:" "temporal" temporal legacy
   ask seed "semente" "42"
+  ask_test_size
   ask folds "partições da validação cruzada" "5"
   ask pair "dois canais para o gráfico de dispersão" "1 2"
   ask_signal
   # shellcheck disable=SC2086  # the pair is two words on purpose
   run docker compose "${BASE[@]}" run --rm train \
     ros2 run mestrado_emg analyze_legacy "/data/$csv" --out /models/analise \
-    --feature "$feature" --split "$split" --seed "$seed" --cv "$folds" --pair $pair \
-    "${SIGNAL_ARGS[@]}"
+    --feature "$feature" --split "$split" --seed "$seed" "${TEST_ARGS[@]}" --cv "$folds" \
+    --pair $pair "${SIGNAL_ARGS[@]}"
   echo "  Figuras e resumo em models/analise/ (a última linha da análise diz a pasta)"
   if is_wsl; then
     echo "  Para abrir no Windows: cd models/analise && explorer.exe ."
@@ -297,6 +308,7 @@ menu() {
    8) Modo espelho: o braço copia o vídeo/câmera
    9) Captura de dados (sEMG + ângulo do cotovelo)
   10) Encerrar tudo que estiver rodando
+  11) Baixar os dados de gestos da disciplina (1 kHz, 8 participantes)
    0) Sair
 EOF
 }
@@ -316,6 +328,7 @@ while true; do
     8) opt_mirror ;;
     9) opt_capture ;;
     10) run scripts/stop.sh ;;
+    11) run scripts/fetch_gesture_data.sh ;;
     0 | q | sair) exit 0 ;;
     "") ;;
     *) echo "  opção inválida: $choice" ;;

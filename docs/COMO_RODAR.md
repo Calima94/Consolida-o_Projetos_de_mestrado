@@ -325,7 +325,8 @@ versão: reconstrua (passo 3). O que esses resultados querem dizer está em
 
 **Wavelet, níveis, camadas e janela**, como na tela de treino do mestrado,
 valem para `train_legacy` e `analyze_legacy`. No painel, ficam em "Parâmetros
-do sinal"; no menu, respondendo `s` a "ajustar janela e wavelet?". Por exemplo:
+do sinal"; no menu, respondendo `s` a "ajustar frequência, filtros, janela e
+wavelet?". Por exemplo:
 
 ```bash
 docker compose -f docker/compose.yaml run --rm train \
@@ -346,6 +347,41 @@ docker compose -f docker/compose.yaml run --rm train \
   classificador usa na simulação os parâmetros com que foi treinado.
 - Se os níveis passarem do que a janela comporta, o comando avisa: a db7 em
   janelas de 250 ms só tem 1 nível útil (o mestrado usava 4).
+
+**Frequência de amostragem e filtros IIR**, também como na tela do mestrado
+(D24). `--fs` é a taxa da gravação (padrão 200 Hz, a do Myo); o número de
+canais vem do próprio CSV. Os filtros têm três modos:
+
+- `--filters legacy` (padrão): os coeficientes do mestrado, que foram
+  projetados para 200 Hz. Em outra taxa eles mudam de lugar (a 1000 Hz o
+  passa-altas corta em ~71 Hz e o rejeita-faixa vai para ~300 Hz), e o comando
+  avisa;
+- `--filters design --highpass-hz 20 --mains-hz 60`: Butterworth calculado
+  para a taxa escolhida (`--mains-hz 0` tira o rejeita-faixa);
+- `--filters files --highpass-file ... --bandstop-file ...`: coeficientes SOS
+  de arquivo, como o app do mestrado. Ponha os arquivos em `data/filtros/`; o
+  painel lista o que estiver lá. Aceita o CSV do app (`Filter,Value,...`), 6
+  números por linha, JSON ou `.npy`, e recusa filtro instável.
+
+O painel lê a coluna `time` de cada gravação e, se a taxa medida for outra,
+oferece "Usar ... Hz". A **parte de teste** do hold-out (`--test-size`,
+padrão 30 %) fica no mesmo cartão e no menu.
+
+**Os dados de gestos da disciplina** (8 participantes, 5 gestos, 4 canais a
+1000 Hz) têm botão próprio no painel (Manutenção → Dados → Gestos da
+disciplina) e opção 11 no menu:
+
+```bash
+./scripts/fetch_gesture_data.sh
+```
+
+O script baixa os 40 arquivos do Drive da disciplina, confere o SHA-256 de
+cada um e grava `data/gestos_1khz.csv` (82 MB) com uma coluna `participante`.
+No painel, "Como na disciplina" em "Parâmetros do sinal" põe os parâmetros
+com que o app foi usado lá (1000 Hz, RMS, janela de 200 ms, sorteio com 20 %
+de teste, semente 5). Com essa coluna, a análise acrescenta a validação por
+participante: treina com sete pessoas e testa na oitava. Os resultados e o
+porquê estão em [`ANALISE_GESTOS.md`](ANALISE_GESTOS.md).
 
 ### 7. Modo espelho: o braço do Gazebo copia o seu
 

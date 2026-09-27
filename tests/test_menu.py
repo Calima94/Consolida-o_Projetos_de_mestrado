@@ -31,7 +31,7 @@ def _commands(out: str) -> list[str]:
 
 
 def test_defaults_train_the_thesis_file_like_the_compose_service():
-    (cmd,) = _commands(_menu("4\n\n\n\n\n0\n"))
+    (cmd,) = _commands(_menu("4\n\n\n\n\n\n0\n"))
     assert cmd == (
         "docker compose -f docker/compose.yaml run --rm train ros2 run mestrado_emg "
         "train_legacy /data/6_10_20220.csv --out /models --feature mav --split temporal --seed 42"
@@ -39,9 +39,9 @@ def test_defaults_train_the_thesis_file_like_the_compose_service():
 
 
 def test_analysis_passes_every_field():
-    (cmd,) = _commands(_menu("5\n\nrms\nlegacy\n7\n3\n3 4\n0\n"))
+    (cmd,) = _commands(_menu("5\n\nrms\nlegacy\n7\n20\n3\n3 4\n0\n"))
     assert "analyze_legacy /data/6_10_20220.csv --out /models/analise" in cmd
-    assert "--feature rms --split legacy --seed 7 --cv 3 --pair 3 4" in cmd
+    assert "--feature rms --split legacy --seed 7 --test-size 0.2 --cv 3 --pair 3 4" in cmd
 
 
 def test_full_system_uses_the_window_file_and_gui():

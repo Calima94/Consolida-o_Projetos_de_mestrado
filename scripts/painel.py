@@ -403,6 +403,12 @@ def _treino_args(p: dict, opc: dict) -> tuple[str, str, str, int]:
     )
 
 
+def _teste(p: dict) -> list[str]:
+    """--test-size, only when the hold-out is not the thesis's 30 % (the course used 20 %)."""
+    pct = _int(p, "teste", 30, 5, 50)
+    return [] if pct == 30 else ["--test-size", f"{pct / 100:g}"]
+
+
 # The wavelets PyWavelets knows by these names (the page offers haar, db, sym, coif).
 WAVELET = re.compile(
     r"haar|dmey|db([1-9]|[1-3]\d)|sym([2-9]|1\d|20)|coif([1-9]|1[0-7])"
@@ -492,7 +498,7 @@ def plano_treino(p: dict, amb: Ambiente, opc: dict) -> Plano:
     argv = [
         *_compose(BASE), "run", "--rm", "train",
         "ros2", "run", "mestrado_emg", "train_legacy", f"/data/{csv}", "--out", "/models",
-        "--feature", feature, "--split", divisao, "--seed", str(semente), *extra,
+        "--feature", feature, "--split", divisao, "--seed", str(semente), *_teste(p), *extra,
     ]  # fmt: skip
     return Plano("Treinar os classificadores", [Comando(argv)])
 
@@ -513,7 +519,7 @@ def plano_analise(p: dict, amb: Ambiente, opc: dict) -> Plano:
     argv = [
         *_compose(BASE), "run", "--rm", "train",
         "ros2", "run", "mestrado_emg", "analyze_legacy", f"/data/{csv}", "--out", "/models/analise",
-        "--feature", feature, "--split", divisao, "--seed", str(semente),
+        "--feature", feature, "--split", divisao, "--seed", str(semente), *_teste(p),
         "--cv", str(particoes), "--pair", *canais, *extra,
     ]  # fmt: skip
     return Plano(
@@ -587,6 +593,10 @@ ACOES: dict[str, tuple[Construtor, bool]] = {
     "testes_completo": (_script("Testes (completo)", "scripts/ci_local.sh"), True),
     "verificar": (_script("Verificar o Docker", "scripts/check_docker.sh"), False),
     "dados": (_script("Baixar os dados do mestrado", "scripts/fetch_legacy_data.sh"), False),
+    "dados_gestos": (
+        _script("Baixar os dados de gestos da disciplina", "scripts/fetch_gesture_data.sh"),
+        False,
+    ),
     "imagem": (_script("Construir a imagem", "docker", "compose", "-f", BASE, "build"), True),
     "parar_tudo": (_script("Parar tudo", "scripts/stop.sh"), True),
     "abrir_docker": (plano_abrir_docker, False),
