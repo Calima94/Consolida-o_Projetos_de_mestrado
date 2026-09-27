@@ -49,6 +49,25 @@ def test_load_legacy_csv_accepts_both_spellings(tmp_path):
     assert labels.tolist() == [1, 2]
 
 
+def test_gesture_file_keeps_text_labels_and_the_participant(tmp_path):
+    """The layout of scripts/fetch_gesture_data.sh; 'gesto_0' is a class, unlike label 0."""
+    p = tmp_path / "g.csv"
+    pd.DataFrame(
+        {
+            "time": [0, 0.001, 0, 0.001],
+            "channel1": [1, 2, 3, 4],
+            "channel2": [5, 6, 7, 8],
+            "participante": [1, 1, 2, 2],
+            "position": ["gesto_0", "gesto_0", "gesto_1", "gesto_1"],
+        }
+    ).to_csv(p, index=False)
+    samples, labels, grupos = load_legacy_csv(p, with_groups=True)
+    assert samples.shape == (4, 2)
+    assert labels.tolist() == ["gesto_0", "gesto_0", "gesto_1", "gesto_1"]
+    assert grupos.tolist() == [1, 1, 2, 2]
+    assert load_legacy_csv(_synthetic_csv(tmp_path / "s.csv"), with_groups=True)[2] is None
+
+
 def test_temporal_split_is_blocked_and_purged(tmp_path):
     s, lab = load_legacy_csv(_synthetic_csv(tmp_path / "s.csv"))
     ds = build_dataset(s, lab, LegacyFeatureConfig())

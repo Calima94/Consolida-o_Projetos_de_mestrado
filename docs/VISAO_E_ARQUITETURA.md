@@ -60,7 +60,10 @@ existir antes, no dia que o braço chegar ele se mexe.
 ### 3.1 Interface web por websocket, não PyQt
 
 A dissertação tinha três telas PyQt. Elas já foram substituídas por um menu de
-terminal (`scripts/menu.sh`), que cobre as funções mas não é interface gráfica.
+terminal (`scripts/menu.sh`) e, para quem não quer digitar comandos, por um
+painel no navegador (`scripts/painel.py`, decisão D22) que liga e desliga cada
+parte do sistema com botões. O painel é o lançador, não uma das guias: ele roda
+no host e chama o `docker compose`, enquanto as guias falam com o ROS.
 
 O destino é **página web falando com o ROS 2 por `rosbridge`** (websocket + JSON).
 Três consequências, todas boas:

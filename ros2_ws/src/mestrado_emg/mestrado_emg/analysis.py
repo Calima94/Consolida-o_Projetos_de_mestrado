@@ -11,6 +11,9 @@ plus what the GUI never showed:
   (``StratifiedKFold`` over windows, like the thesis split). The gap between the
   two is the optimism of mixing neighbouring windows between train and test.
   The GUI had a ``cv`` field, but the calls that used it were commented out;
+* **participant-wise** validation when the file has a ``participante`` column
+  (the multi-subject gesture set of ``scripts/fetch_gesture_data.sh``): train on
+  everybody else, test on each person in turn;
 * **ROC from continuous scores** (``decision_function``/``predict_proba``). The
   GUI passed hard 0/1 predictions to ``roc_curve``, which yields a single point;
 * a **sampling-rate check** from the ``time`` column: the pipeline assumes the
@@ -28,7 +31,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 from pathlib import Path
 
 import numpy as np
@@ -47,13 +49,20 @@ from sklearn.model_selection import StratifiedKFold
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import FunctionTransformer
 
-from mestrado_emg.features import LegacyFeatureConfig
+from mestrado_emg.features import (
+    LegacyFeatureConfig,
+    add_pipeline_args,
+    config_from_args,
+    count_channels,
+    extract_features,
+)
 from mestrado_emg.training import (
     SplitMode,
     WindowDataset,
     build_dataset,
     load_legacy_csv,
     make_classifiers,
+    run_name,
     sha256_of,
     split_indices,
 )
@@ -165,6 +174,44 @@ def cross_validate(
     return out
 
 
+def participant_cv(
+    samples: np.ndarray,
+    labels: np.ndarray,
+    groups: np.ndarray,
+    config: LegacyFeatureConfig,
+    seed: int,
+) -> dict:
+    """Accuracy on each participant with the classifiers trained on all the others.
+
+    Windows are cut per (label, participant) segment, so none mixes two people.
+    What a prosthesis needs is closer to this than to any split inside one
+    person's recording: a model that works for someone it was not trained on.
+
+    Returns
+    -------
+    dict
+        ``{"participantes": [...], "acc": {name: [acc per participant, ...]}}``.
+    """
+    X, y, g = [], [], []
+    classes = sorted(pd.unique(labels).tolist())
+    for idx, label in enumerate(classes):
+        for grupo in pd.unique(groups[labels == label]):
+            feats = extract_features(samples[(labels == label) & (groups == grupo)], config)
+            X.append(feats)
+            y += [idx] * len(feats)
+            g += [grupo] * len(feats)
+    X, y, g = np.vstack(X), np.array(y), np.array(g)
+    ordem = sorted(pd.unique(g).tolist())
+    acc: dict[str, list[float]] = {}
+    for name, proto in analysis_classifiers(seed).items():
+        acc[name] = []
+        for grupo in ordem:
+            teste = g == grupo
+            clf = clone(proto).fit(X[~teste], y[~teste])
+            acc[name].append(float(accuracy_score(y[teste], clf.predict(X[teste]))))
+    return {"participantes": [str(x) for x in ordem], "acc": acc}
+
+
 def positive_class_score(clf, X: np.ndarray) -> np.ndarray:
     """Continuous score for class 1 of a fitted binary classifier."""
     if hasattr(clf, "decision_function"):
@@ -212,7 +259,7 @@ def analyze(
     from sklearn.metrics import ConfusionMatrixDisplay
 
     csv_path = Path(csv_path)
-    samples, labels = load_legacy_csv(csv_path)
+    samples, labels, groups = load_legacy_csv(csv_path, with_groups=True)
     if samples.shape[1] != config.n_channels:
         raise ValueError(
             f"{csv_path} has {samples.shape[1]} channels, config expects {config.n_channels}"
@@ -220,8 +267,7 @@ def analyze(
     for ch in pair:
         if not 1 <= ch <= config.n_channels:
             raise ValueError(f"channel {ch} outside 1..{config.n_channels}")
-    stem = re.sub(r"[^A-Za-z0-9]+", "-", csv_path.stem).strip("-")
-    out = Path(out_dir) / f"{stem}_{config.feature}_{split}"
+    out = Path(out_dir) / run_name(csv_path, config, split)
     out.mkdir(parents=True, exist_ok=True)
 
     rate = estimate_rate_hz(csv_path)
@@ -252,21 +298,35 @@ def analyze(
     min_class = int(np.bincount(ds.y).min())
     folds = min(n_folds, min_class)
     cv = cross_validate(ds, folds, seed, purge_windows) if folds >= 2 else {}
+    por_participante = (
+        participant_cv(samples, labels, groups, config, seed)
+        if groups is not None and len(pd.unique(groups)) >= 2
+        else None
+    )
 
     # 1. scores (the GUI's Home page bar chart)
     fig, ax = plt.subplots(figsize=(7, 4))
     x = np.arange(len(results))
     accs = [r["accuracy"] * 100 for r in results.values()]
-    ax.bar(x - 0.2, accs, 0.4, label=f"hold-out {split}")
+    barras = 1 + bool(cv) + bool(por_participante)
+    largura = 0.8 / barras
+    desloc = (np.arange(barras) - (barras - 1) / 2) * largura
+    ax.bar(x + desloc[0], accs, largura, label=f"hold-out {split}")
     if cv:
         m = [np.mean(v) * 100 for v in cv["temporal"].values()]
         s = [np.std(v) * 100 for v in cv["temporal"].values()]
-        ax.bar(x + 0.2, m, 0.4, yerr=s, capsize=3, label=f"CV temporal ({folds} blocos)")
+        ax.bar(x + desloc[1], m, largura, yerr=s, capsize=3, label=f"CV temporal ({folds} blocos)")
+    if por_participante:
+        vals = por_participante["acc"].values()
+        m = [np.mean(v) * 100 for v in vals]
+        s = [np.std(v) * 100 for v in vals]
+        n = len(por_participante["participantes"])
+        ax.bar(x + desloc[-1], m, largura, yerr=s, capsize=3, label=f"participante novo ({n})")
     ax.set_xticks(x, list(results))
     ax.set_ylim(0, 105)
     ax.set_ylabel("acurácia (%)")
     ax.set_title(f"{csv_path.name}: {len(test_idx)} janelas de teste")
-    ax.legend(loc="lower right")
+    ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.1), ncol=barras, frameon=False)
     fig.tight_layout()
     fig.savefig(out / "scores.png", dpi=120)
     plt.close(fig)
@@ -371,6 +431,7 @@ def analyze(
         "holdout": results,
         "cv_folds": folds if cv else 0,
         "cv": cv,
+        "cv_participante": por_participante,
         "sklearn_version": sklearn.__version__,
     }
     (out / "analise.json").write_text(json.dumps(report, indent=2, ensure_ascii=False))
@@ -387,15 +448,18 @@ def _summary_md(r: dict, split: str) -> str:
         f"semente: {r['seed']}; scikit-learn {r['sklearn_version']}",
         f"- janelas: {r['n_windows']['total']} (por categoria {r['n_windows']['per_class']}); "
         f"treino {r['n_windows']['train']}, teste {r['n_windows']['test']}",
+        f"- sinal: {LegacyFeatureConfig.from_dict(r['feature_config']).describe()}",
     ]
     if r["measured_rate_hz"]:
         lines.append(f"- taxa medida: ~{r['measured_rate_hz']:.0f} amostras/s")
     if r["warning"]:
         lines.append(f"- **AVISO:** {r['warning']}")
+    grupos = r.get("cv_participante")
     lines += [
         "",
-        "| classificador | hold-out | bal. | AUC | CV temporal | CV embaralhada |",
-        "|---|---|---|---|---|---|",
+        "| classificador | hold-out | bal. | AUC | CV temporal | CV embaralhada |"
+        + (" participante novo |" if grupos else ""),
+        "|---|---|---|---|---|---|" + ("---|" if grupos else ""),
     ]
     for name, res in r["holdout"].items():
         auc = f"{res['roc_auc']:.2f}" if "roc_auc" in res else "-"
@@ -404,10 +468,14 @@ def _summary_md(r: dict, split: str) -> str:
             t, s = r["cv"]["temporal"][name], r["cv"]["shuffled"][name]
             cvt = f"{np.mean(t):.2f} ± {np.std(t):.2f}"
             cvs = f"{np.mean(s):.2f} ± {np.std(s):.2f}"
-        lines.append(
+        linha = (
             f"| {name} | {res['accuracy']:.2f} | {res['balanced_accuracy']:.2f} | {auc} "
             f"| {cvt} | {cvs} |"
         )
+        if grupos:
+            g = grupos["acc"][name]
+            linha += f" {np.mean(g):.2f} ± {np.std(g):.2f} |"
+        lines.append(linha)
     lines += [
         "",
         f'CV com {r["cv_folds"]} partições. "Temporal" testa blocos contíguos de cada categoria '
@@ -415,8 +483,15 @@ def _summary_md(r: dict, split: str) -> str:
         "como o split do mestrado, e por isso tende a ser otimista. "
         '"amplitude" é a referência de um número só por janela (média dos canais): se ela '
         "empata com os classificadores, eles estão separando o nível geral de ativação.",
-        "",
     ]
+    if grupos:
+        nomes = ", ".join(grupos["participantes"])
+        lines += [
+            "",
+            f'"Participante novo": treina com todos os outros e testa em cada um ({nomes}); '
+            "média ± desvio entre participantes. É o caso de quem nunca gravou dados de treino.",
+        ]
+    lines.append("")
     return "\n".join(lines)
 
 
@@ -425,7 +500,6 @@ def main(argv: list[str] | None = None) -> None:
     p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     p.add_argument("csv", help="raw CSV from Capture_EMG_Data (e.g. 6_10_20220.csv)")
     p.add_argument("--out", default="models/analise", help="output directory")
-    p.add_argument("--feature", choices=["mav", "rms"], default="mav")
     p.add_argument("--split", choices=["legacy", "temporal"], default="temporal")
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--test-size", type=float, default=0.3)
@@ -439,12 +513,14 @@ def main(argv: list[str] | None = None) -> None:
         metavar=("CH_X", "CH_Y"),
         help="channels (1-based) for the feature scatter plot",
     )
+    add_pipeline_args(p)
     args = p.parse_args(argv)
+    config = config_from_args(args, count_channels(args.csv))
 
     report = analyze(
         args.csv,
         args.out,
-        LegacyFeatureConfig(feature=args.feature),
+        config,
         split=args.split,
         seed=args.seed,
         test_size=args.test_size,
@@ -453,8 +529,7 @@ def main(argv: list[str] | None = None) -> None:
         pair=tuple(args.pair),
     )
     print(_summary_md(report, args.split))
-    stem = re.sub(r"[^A-Za-z0-9]+", "-", Path(args.csv).stem).strip("-")
-    print(f"figuras em {Path(args.out) / f'{stem}_{args.feature}_{args.split}'}")
+    print(f"figuras em {Path(args.out) / run_name(args.csv, config, args.split)}")
 
 
 if __name__ == "__main__":

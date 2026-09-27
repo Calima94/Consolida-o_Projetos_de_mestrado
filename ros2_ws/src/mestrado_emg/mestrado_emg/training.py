@@ -49,7 +49,13 @@ from sklearn.naive_bayes import GaussianNB
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.tree import DecisionTreeClassifier
 
-from mestrado_emg.features import LegacyFeatureConfig, extract_features
+from mestrado_emg.features import (
+    LegacyFeatureConfig,
+    add_pipeline_args,
+    config_from_args,
+    count_channels,
+    extract_features,
+)
 
 BUNDLE_FORMAT = "mestrado-emg-bundle/1"
 
@@ -84,7 +90,7 @@ class WindowDataset:
     class_labels: list
 
 
-def load_legacy_csv(path: str | Path) -> tuple[np.ndarray, np.ndarray]:
+def load_legacy_csv(path: str | Path, with_groups: bool = False) -> tuple:
     """Read a Capture_EMG_Data CSV the same way ``read_data`` did.
 
     Column names are stripped and lower-cased; channel columns are those
@@ -96,7 +102,8 @@ def load_legacy_csv(path: str | Path) -> tuple[np.ndarray, np.ndarray]:
     -------
     tuple of np.ndarray
         ``samples`` with shape ``[n_samples, n_channels]`` and ``labels`` with
-        shape ``[n_samples]``.
+        shape ``[n_samples]``; with ``with_groups``, also the ``participante``
+        column (or None when the file has none).
     """
     df = pd.read_csv(path)
     df.columns = df.columns.str.strip().str.lower()
@@ -106,7 +113,10 @@ def load_legacy_csv(path: str | Path) -> tuple[np.ndarray, np.ndarray]:
     # Label 0 = "outside every category", written only by the capture tool's
     # continuous mode (mestrado_capture); it is not a class.
     df = df[df[df.columns[-1]] != 0]
-    return df[channel_cols].to_numpy(dtype=float), df[df.columns[-1]].to_numpy()
+    out = (df[channel_cols].to_numpy(dtype=float), df[df.columns[-1]].to_numpy())
+    if with_groups:  # who recorded each row, when the file says (scripts/fetch_gesture_data.sh)
+        return (*out, df["participante"].to_numpy() if "participante" in df.columns else None)
+    return out
 
 
 def build_dataset(
@@ -173,6 +183,22 @@ def make_classifiers(seed: int) -> dict:
     }
 
 
+def run_name(csv_path: str | Path, config: LegacyFeatureConfig, split: str) -> str:
+    """``<file>_<feature>_<split>[_<tag>]``: models, reports and analyses of one setup.
+
+    The tag only appears for choices other than the thesis ones, so the default
+    names (and the launch files that use them) stay as they were.
+
+    >>> run_name("6_10_20220.csv", LegacyFeatureConfig(), "temporal")
+    '6-10-20220_mav_temporal'
+    >>> run_name("6_10_20220.csv", LegacyFeatureConfig(wavelet="db4", wavelet_levels=2), "temporal")
+    '6-10-20220_mav_temporal_db4-n2'
+    """
+    stem = re.sub(r"[^A-Za-z0-9]+", "-", Path(csv_path).stem).strip("-")
+    tag = config.tag()
+    return f"{stem}_{config.feature}_{split}" + (f"_{tag}" if tag else "")
+
+
 def sha256_of(path: str | Path) -> str:
     """Hex SHA-256 of a file, used to pin the training data version."""
     h = hashlib.sha256()
@@ -228,7 +254,7 @@ def train_all(
         "sklearn_version": sklearn.__version__,
         "results": {},
     }
-    stem = re.sub(r"[^A-Za-z0-9]+", "-", csv_path.stem).strip("-")
+    nome = run_name(csv_path, config, split)
     for name, clf in make_classifiers(seed).items():
         clf.fit(ds.X[train_idx], ds.y[train_idx])
         pred = clf.predict(ds.X[test_idx])
@@ -250,14 +276,14 @@ def train_all(
             "sklearn_version": sklearn.__version__,
             "created": date,
         }
-        dated = out_dir / f"{name}_{stem}_{config.feature}_{split}_{date}.joblib"
+        dated = out_dir / f"{name}_{nome}_{date}.joblib"
         joblib.dump(bundle, dated)
-        # Stable name for launch files: <name>_<stem>_<feature>_<split>_latest.joblib
-        latest = out_dir / f"{name}_{stem}_{config.feature}_{split}_latest.joblib"
+        # Stable name for launch files: <name>_<stem>_<feature>_<split>[_<tag>]_latest.joblib
+        latest = out_dir / f"{name}_{nome}_latest.joblib"
         latest.unlink(missing_ok=True)
         latest.symlink_to(dated.name)
 
-    report_path = out_dir / f"report_{stem}_{config.feature}_{split}_{date}.json"
+    report_path = out_dir / f"report_{nome}_{date}.json"
     report_path.write_text(json.dumps(report, indent=2))
     return report
 
@@ -278,17 +304,17 @@ def main(argv: list[str] | None = None) -> None:
     p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     p.add_argument("csv", help="raw CSV from Capture_EMG_Data (e.g. 6_10_20220.csv)")
     p.add_argument("--out", default="models", help="output directory")
-    p.add_argument("--feature", choices=["mav", "rms"], default="mav")
     p.add_argument("--split", choices=["legacy", "temporal"], default="temporal")
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--test-size", type=float, default=0.3)
     p.add_argument("--purge-windows", type=int, default=1)
+    add_pipeline_args(p)
     args = p.parse_args(argv)
 
     report = train_all(
         args.csv,
         args.out,
-        LegacyFeatureConfig(feature=args.feature),
+        config_from_args(args, count_channels(args.csv)),
         split=args.split,
         seed=args.seed,
         test_size=args.test_size,

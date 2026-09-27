@@ -88,6 +88,21 @@ services:
     image: mestrado-ros:lyrical
     profiles: [desktop]
 
+  # The course project's LSTM, trained again with honest splits (mestrado_emg/
+  # lstm_gestos.py, docs/ANALISE_GESTOS.md). Own image with PyTorch (CPU), built
+  # only on request: `--profile lstm build lstm`, then `--profile lstm run --rm lstm`.
+  lstm:
+    image: mestrado-lstm:cpu
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.lstm
+    profiles: [lstm]
+    init: true
+    volumes:
+      - ../data:/data
+      - ../models:/models
+    command: python3 -m mestrado_emg.lstm_gestos /data/gestos_1khz.csv --out /models/analise
+
   # Interactive shell with the workspace sourced.
   shell:
     <<: *ros

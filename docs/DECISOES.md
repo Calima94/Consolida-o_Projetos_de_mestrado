@@ -214,3 +214,134 @@ Gazebo: parado a caminho de 90°, o cotovelo ficou em 70,36° sem deriva em 5 s;
 um `cmd_pos` enviado do terminal durante a parada foi ignorado. *Rever se*
 houver braço físico: aí falta o watchdog de conexão, para o controlador parar
 sozinho quando a página ficar muda.
+
+**D22. Painel no navegador, rodando no host, para os comandos do projeto.**
+`scripts/painel.py` serve `scripts/painel.html` em `http://localhost:8000`: um
+cartão por ação do menu, com as opções recolhidas e os mesmos padrões, mais
+testes e "parar tudo". Roda no host (o Ubuntu do WSL, ou o Linux) e não no
+Docker, porque é ele que sobe e para os containers; usa só a biblioteca padrão
+do Python, então não há nada a instalar. Não substitui as guias de
+`VISAO_E_ARQUITETURA.md`, que falam com o ROS pelo `rosbridge`: o painel liga e
+desliga o sistema, as guias o operam. Escolhas:
+
+- **Lista fechada de ações:** cada botão monta um comando conhecido e cada
+  parâmetro é conferido contra os arquivos que existem e os valores do menu.
+  Não há como pedir um comando qualquer. Os testes comparam os comandos de
+  treino e análise com os que o menu imprime.
+- **Simulações destacadas (`up -d`):** fechar o painel não derruba o braço; os
+  registros são acompanhados com `logs -f`. Tarefas com fim (captura, treino,
+  testes) pertencem ao painel e param com ele (SIGINT, como Ctrl+C: a captura
+  salva o que gravou). Medido: com o braço rodando, Ctrl+C no painel parou o
+  acompanhamento e deixou o braço de pé; fechar a janela do `.bat` encerrou o
+  painel sem deixar processo.
+- **Uma simulação ou captura por vez**, conferido no servidor pelos containers
+  que estão rodando, e não só na página.
+- **Só `127.0.0.1`.** Todo POST exige o cabeçalho `X-Painel`, que uma página de
+  outra origem não consegue mandar sem um preflight de CORS, que o servidor
+  nunca aprova. O cabeçalho `Host` tem de ser `localhost`, o que barra DNS
+  rebinding.
+
+*Rever se* o painel precisar ficar acessível pela rede (por exemplo, no Pi): aí
+ele precisa de autenticação, como o `rosbridge`.
+
+**D23. Wavelet, níveis, camadas e janela voltam a ser escolhas.** A tela de
+treino do mestrado deixava escolher a wavelet-mãe (campo livre, `db7`), os
+níveis (1 a 4), as "layers to use" (1 a 4, isto é, as camadas 1..n) e a janela;
+o porte tinha fixado tudo no padrão. Agora `train_legacy` e `analyze_legacy`
+aceitam `--wavelet`, `--levels`, `--wavelet-mode`, `--layers`, `--approx` e
+`--window-ms`, e o painel e o menu oferecem as mesmas escolhas. Os modelos
+guardam a configuração, e o classificador ao vivo usa a do modelo (achado 2).
+
+- **Dois modos de camadas.** `legacy` (padrão) reproduz o laço do mestrado, em
+  que a escolha de camadas não faz efeito e só o D*n* é zerado (achado 4); é o
+  que reproduz os modelos e os números históricos. `bands` mantém exatamente as
+  camadas escolhidas (1 = a mais fina, `fs/4..fs/2`) e, se pedido, a
+  aproximação, e zera o resto antes do MAV/RMS. É o que a tela prometia.
+- **Nomes que não se sobrescrevem.** Escolhas diferentes das do mestrado viram
+  um rótulo no nome de modelos, relatórios e pastas de análise
+  (`..._temporal_sym4-n2-D12_latest.joblib`). Com as escolhas do mestrado os
+  nomes não mudam, então os launch files e o menu seguem funcionando.
+- **O nível útil é avisado, não imposto.** A db7 em janelas de 50 amostras só
+  tem 1 nível útil (achado 25), mas o mestrado usava 4, então 4 continua
+  permitido, com aviso.
+
+Medido no `6_10_20220.csv` (CV temporal, 5 partições): o mestrado dá k-NN 0,98;
+faixas D1+D2 com db7, 1,00; só D1, 0,95; db4 com 2 níveis e D1+D2, 0,98; haar
+com D1 a D3, 0,98. A referência de amplitude fica entre 0,95 e 0,98 em todos.
+Neste conjunto a escolha pouco importa, porque um único nível de amplitude já
+separa as classes ([ANALISE_RESULTADOS.md](ANALISE_RESULTADOS.md)); ela deve
+pesar em gravações com mais categorias ou com ângulo contínuo. A taxa e os
+filtros IIR vieram depois (D24).
+
+**D24. Taxa de amostragem e filtros IIR também são escolhas.** A tela do
+mestrado tinha a frequência de captura e os arquivos dos dois filtros. Agora
+`--fs` e `--filters legacy|design|files` fazem o mesmo em `train_legacy` e
+`analyze_legacy`, e o painel e o menu oferecem as duas escolhas. O número de
+canais vem do cabeçalho do CSV.
+
+- **Os coeficientes do mestrado continuam o padrão**, mesmo em outra taxa,
+  porque é o que a tela fazia e o que a disciplina usou. Foram projetados para
+  200 Hz: a 1000 Hz o passa-altas vai de ~14 para ~71 Hz e o rejeita-faixa de
+  60 para ~300 Hz. O terminal e o painel avisam e mostram onde eles cortam.
+- **`design`** calcula, para a taxa escolhida, um Butterworth passa-altas de
+  4ª ordem e um rejeita-faixa de 2ª ordem em torno da rede (60 ou 50 Hz, ou
+  nenhum).
+- **`files`** lê SOS de `data/filtros/`: o CSV do app do mestrado, 6 números
+  por linha, JSON ou `.npy`. Recusa arquivo sem 6 colunas, com `a0` zero ou
+  com polo fora do círculo unitário: um filtro instável faria o treino
+  terminar em NaN sem dizer por quê.
+- O painel mede a taxa pela coluna `time` e oferece "Usar ... Hz" quando ela
+  difere da escolhida. Taxa, filtros e canais entram no nome dos modelos e das
+  pastas (`fs1000-c4-hp20-rf60`).
+
+**D25. Os dados de gestos da disciplina entram no projeto, com validação por
+participante.** A disciplina de Deep Learning (PPGINF) usou o app do mestrado
+nos dados de Toro-Ossaba et al. (2022): 8 participantes, 5 gestos, 4 canais a
+1000 Hz. `scripts/fetch_gesture_data.sh` os baixa com SHA-256 conferido e
+grava um CSV só, com a coluna `participante`. No painel, "Como na disciplina"
+preenche os parâmetros usados lá, e "Parte de teste (%)" dá o `--test-size`.
+
+- **A validação por participante aparece quando o CSV diz quem gravou.**
+  Treina com todos os outros e testa em cada participante: funciona em quem
+  não gravou dados de treino? Hold-out e as outras CVs continuam iguais, para
+  a reprodução da disciplina não mudar.
+- **O rótulo é texto (`gesto_0`...)**, porque o treino descarta o rótulo 0
+  ("fora de toda categoria" na captura). Os nomes dos gestos não estão nos
+  dados nem nos notebooks.
+- Resultado: 85–95 % com o sorteio da disciplina e 83–89 % com participante
+  novo, não os 100 % relatados (achado 26). Detalhes em
+  [ANALISE_GESTOS.md](ANALISE_GESTOS.md).
+
+A LSTM da disciplina foi refeita com a mesma divisão por participante (D26).
+
+**D26. A LSTM da disciplina, refeita igual, numa imagem própria.**
+`mestrado_emg/lstm_gestos.py` repete o notebook PyTorch da disciplina e muda
+só a divisão treino/teste: a do notebook (com sobreposição, achado 27), sorteio
+sem sobreposição e participante novo.
+
+- **Igual, inclusive no que parece errado.** A arquitetura (a recorrência corre
+  entre as janelas do lote, achado 28), o dropout só na primeira época, a
+  média móvel sem o último canal e os hiperparâmetros escolhidos olhando o
+  teste ficam como estão. Corrigir qualquer um deles misturaria dois efeitos,
+  e a pergunta era quanto a divisão muda o resultado. A reprodução com a
+  divisão do notebook dá 97,0 % (o relatório diz 96,95 %), o que confere a
+  fidelidade.
+- **Uma diferença, pequena e declarada:** nas divisões novas, o valor máximo
+  que normaliza as janelas vem só das de treino (o notebook o tira de todas).
+- **Imagem própria (`docker/Dockerfile.lstm`, perfil `lstm` do compose).** O
+  PyTorch para CPU ocupa ~1,7 GB com a imagem, e nada do ROS precisa dele. Com
+  o perfil, `docker compose build` e o botão "Construir a imagem" continuam sem
+  baixá-lo; o cartão do painel e a opção 12 do menu constroem na primeira vez.
+  O `ci_local.sh` roda os testes da LSTM nessa imagem quando ela existe; o CI
+  do GitHub não a constrói.
+- **Rápido o bastante para um botão.** Cada treino dura ~15–25 s na CPU. Os 30
+  treinos (3 sementes × 10 divisões) rodam em paralelo, um por núcleo, em
+  cerca de 1 min com 20 núcleos, e com as mesmas sementes o resultado se
+  repete exatamente.
+
+Resultado: 97,0 % → 88,4 % sem a sobreposição → 82,7 % com participante novo,
+abaixo do kNN (89 %) e do SVM (88 %) na mesma divisão
+([ANALISE_GESTOS.md](ANALISE_GESTOS.md)). *Rever se* for testada uma LSTM que
+percorra o tempo dentro da janela, ou hiperparâmetros escolhidos com
+validação honesta: aí o módulo ganha uma opção, e a reprodução fiel continua
+sendo o padrão.

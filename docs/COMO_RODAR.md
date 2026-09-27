@@ -135,8 +135,24 @@ Arquivo de janela para o Linux: `docker/compose.gui.yaml`.
 
 ## Rodando
 
-**Atalho: o menu.** Depois do passo 1, `scripts/menu.sh` faz os passos 2 a 9
-por você, no lugar das telas do mestrado; só a interface web (passo 5) ainda
+**Atalho: o painel.** Depois do passo 1, o painel faz os passos 2 a 9 com
+botões no navegador, inclusive a interface web do passo 5, os testes e "parar
+tudo". Cada botão usa os padrões abaixo; as opções ficam em "Opções", no
+próprio cartão. Ao lado, a coluna "Saída" mostra o comando que rodou e o que ele
+imprimiu. Roda no terminal do Ubuntu, fora do Docker:
+
+```bash
+python3 scripts/painel.py --abrir
+```
+
+Ele abre `http://localhost:8000` no navegador. Deixe o terminal aberto
+enquanto usa o painel; fechá-lo (ou Ctrl+C) encerra o painel. O braço, o
+sistema completo e o modo espelho continuam rodando depois disso, até você
+clicar em Parar ou rodar `./scripts/stop.sh`. O painel só deixa rodar uma
+simulação (ou captura) por vez.
+
+**Atalho de terminal: o menu.** `scripts/menu.sh` faz os mesmos passos, pergunta
+por pergunta, no lugar das telas do mestrado; só a interface web (passo 5) ainda
 não está nele. Cada opção pergunta os campos (Enter
 aceita o padrão entre colchetes), mostra o comando e pergunta se executa. Ele
 descobre sozinho o arquivo de janela. Os passos abaixo são os mesmos comandos,
@@ -307,6 +323,83 @@ do gráfico de dispersão). Se o comando não existir, a imagem é de antes dest
 versão: reconstrua (passo 3). O que esses resultados querem dizer está em
 [`ANALISE_RESULTADOS.md`](ANALISE_RESULTADOS.md).
 
+**Wavelet, níveis, camadas e janela**, como na tela de treino do mestrado,
+valem para `train_legacy` e `analyze_legacy`. No painel, ficam em "Parâmetros
+do sinal"; no menu, respondendo `s` a "ajustar frequência, filtros, janela e
+wavelet?". Por exemplo:
+
+```bash
+docker compose -f docker/compose.yaml run --rm train \
+  ros2 run mestrado_emg train_legacy /data/6_10_20220.csv --out /models \
+  --wavelet sym4 --levels 2 --wavelet-mode bands --layers 1 2
+```
+
+- `--wavelet` aceita as wavelets discretas do PyWavelets (`db7`, `sym4`,
+  `coif2`, `haar`...); `--levels`, os níveis da decomposição; `--window-ms`, a
+  janela (padrão 250 ms).
+- `--wavelet-mode legacy` (padrão) repete o código do mestrado, em que a
+  escolha de camadas não faz efeito e só a camada mais grossa é removida.
+  `--wavelet-mode bands` mantém só as camadas de `--layers` (1 = a mais fina:
+  50–100 Hz a 200 amostras/s; 2 = 25–50 Hz; e assim por diante) e, com
+  `--approx`, também a aproximação.
+- Escolhas diferentes das do mestrado entram no nome dos modelos e da pasta da
+  análise (`..._sym4-n2-D12`), então não apagam os resultados do mestrado. O
+  classificador usa na simulação os parâmetros com que foi treinado.
+- Se os níveis passarem do que a janela comporta, o comando avisa: a db7 em
+  janelas de 250 ms só tem 1 nível útil (o mestrado usava 4).
+
+**Frequência de amostragem e filtros IIR**, também como na tela do mestrado
+(D24). `--fs` é a taxa da gravação (padrão 200 Hz, a do Myo); o número de
+canais vem do próprio CSV. Os filtros têm três modos:
+
+- `--filters legacy` (padrão): os coeficientes do mestrado, que foram
+  projetados para 200 Hz. Em outra taxa eles mudam de lugar (a 1000 Hz o
+  passa-altas corta em ~71 Hz e o rejeita-faixa vai para ~300 Hz), e o comando
+  avisa;
+- `--filters design --highpass-hz 20 --mains-hz 60`: Butterworth calculado
+  para a taxa escolhida (`--mains-hz 0` tira o rejeita-faixa);
+- `--filters files --highpass-file ... --bandstop-file ...`: coeficientes SOS
+  de arquivo, como o app do mestrado. Ponha os arquivos em `data/filtros/`; o
+  painel lista o que estiver lá. Aceita o CSV do app (`Filter,Value,...`), 6
+  números por linha, JSON ou `.npy`, e recusa filtro instável.
+
+O painel lê a coluna `time` de cada gravação e, se a taxa medida for outra,
+oferece "Usar ... Hz". A **parte de teste** do hold-out (`--test-size`,
+padrão 30 %) fica no mesmo cartão e no menu.
+
+**Os dados de gestos da disciplina** (8 participantes, 5 gestos, 4 canais a
+1000 Hz) têm botão próprio no painel (Manutenção → Dados → Gestos da
+disciplina) e opção 11 no menu:
+
+```bash
+./scripts/fetch_gesture_data.sh
+```
+
+O script baixa os 40 arquivos do Drive da disciplina, confere o SHA-256 de
+cada um e grava `data/gestos_1khz.csv` (82 MB) com uma coluna `participante`.
+No painel, "Como na disciplina" em "Parâmetros do sinal" põe os parâmetros
+com que o app foi usado lá (1000 Hz, RMS, janela de 200 ms, sorteio com 20 %
+de teste, semente 5). Com essa coluna, a análise acrescenta a validação por
+participante: treina com sete pessoas e testa na oitava. Os resultados e o
+porquê estão em [`ANALISE_GESTOS.md`](ANALISE_GESTOS.md).
+
+**A LSTM da disciplina, refeita.** O cartão "Refazer a LSTM da disciplina" do
+painel (ou a opção 12 do menu) treina de novo a rede do notebook PyTorch da
+disciplina, sem mudar nada, em três divisões: a do notebook (o teste repete
+janelas do treino), sorteio sem repetição e participante novo. Ela roda numa
+imagem própria, com PyTorch para CPU (1,7 GB, construída na primeira vez):
+
+```bash
+docker compose -f docker/compose.yaml --profile lstm build lstm
+docker compose -f docker/compose.yaml --profile lstm run --rm lstm
+```
+
+São 30 treinos de 200 épocas (3 sementes), em paralelo, cerca de 1 minuto com
+20 núcleos. O resumo e as figuras (`acuracia.png`, `confusao.png`) vão para
+`models/analise/gestos-1khz_lstm/`. Para um teste rápido:
+`... run --rm lstm python3 -m mestrado_emg.lstm_gestos /data/gestos_1khz.csv
+--out /models/analise --epocas 20 --repeticoes 1`.
+
 ### 7. Modo espelho: o braço do Gazebo copia o seu
 
 Não precisa de sEMG. Com o **vídeo gravado no mestrado**:
@@ -394,6 +487,8 @@ rodando (veja a tabela abaixo).
 | Espelho marca o braço errado | Troque `FLIP` (`true`/`false`) ou `ARM=left` |
 | Captura não termina | Alguma categoria não recebe amostras: aumente `TOLERANCE`, reduza `SAMPLES`, ou encerre com Ctrl+C (o que foi gravado é salvo) |
 | `Myo dongle not found!` | Confira o dispositivo (`ls /dev/ttyACM*`) e passe `MYO_TTY=/dev/ttyACM0` com `-f docker/compose.myo.yaml` |
+| Painel: "Não consegui usar a porta 8000" | Já há um painel aberto (use a aba que já existe) ou outro programa usa a porta: `python3 scripts/painel.py --abrir --porta 8001` |
+| Painel: botão "Iniciar" apagado, com "Pare … antes" | Já há uma simulação ou captura rodando; duas ao mesmo tempo misturariam as leituras. Clique em Parar no cartão dela, ou em Parar tudo |
 | `http://localhost:8080` não abre (Windows) | Faltou `-f docker/compose.desktop.yaml`: sem ele, as portas ficam dentro da máquina virtual do Docker. Confira com `docker ps` se o `mestrado-web-portas-1` está de pé |
 | Página: "sem conexão com o rosbridge" | O serviço `web` caiu ou não subiu: veja `docker compose -f docker/compose.yaml logs web`. Se aparecer `file 'web.launch.py' was not found` ou `package 'rosbridge_server' not found`, a imagem é anterior a esta versão: reconstrua (passo 3) |
 | Página: "conectado, mas sem /joint_states" | O braço não está rodando: suba `braco` (ou `sim`) junto com `web` |

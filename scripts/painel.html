@@ -1,0 +1,1176 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Painel do projeto</title>
+<meta name="description" content="Os comandos do simulador de prótese do mestrado como botões: braço, sistema completo, espelho, captura, treino, análise e testes.">
+<!--
+  Served by scripts/painel.py, which runs the actions. One file; the only
+  external request is the two typefaces, with system fallbacks when offline.
+  Every POST carries X-Painel: 1 (the server refuses it otherwise).
+
+  Palette taken from the project itself: the accent is the blue of the Gazebo
+  pedestal (braco.sdf), amber is the colour the capture tool paints the arm
+  while it records.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@100..125,400..700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root {
+  color-scheme: light;
+  --bg: #eceff4;
+  --surface: #ffffff;
+  --surface-2: #f5f7fa;
+  --ink: #131923;
+  --ink-2: #3a4454;
+  --muted: #677285;
+  --line: #d6dce5;
+  --line-strong: #bcc5d2;
+  --accent: #2f55b0;
+  --accent-ink: #ffffff;
+  --accent-soft: #e2e9f8;
+  --amber: #b06d10;
+  --amber-soft: #fbefdc;
+  --ok: #1d8049;
+  --ok-soft: #dff2e6;
+  --bad: #c2362b;
+  --bad-soft: #fbe5e2;
+  --lamp-off: #c3cad5;
+  --term-bg: #0e131a;
+  --term-bar: #151c26;
+  --term-line: #232d3b;
+  --term-ink: #d4dbe6;
+  --term-muted: #6f7b8d;
+  --term-cmd: #93b0ff;
+  --shadow: 0 1px 1px rgb(19 25 35 / 0.04), 0 6px 20px -8px rgb(19 25 35 / 0.12);
+  --display: "Archivo", "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  --body: "Archivo", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", "Cascadia Mono", Consolas, ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #0f141a;
+    --surface: #161d26;
+    --surface-2: #1b232e;
+    --ink: #e7ecf3;
+    --ink-2: #c3ccd9;
+    --muted: #8a96a8;
+    --line: #243040;
+    --line-strong: #33415a;
+    --accent: #7f9ff0;
+    --accent-ink: #0c1220;
+    --accent-soft: #1d2945;
+    --amber: #f0b050;
+    --amber-soft: #33270f;
+    --ok: #4cc47f;
+    --ok-soft: #13301f;
+    --bad: #f0685c;
+    --bad-soft: #3a1714;
+    --lamp-off: #3a4658;
+    --term-bg: #0a0e13;
+    --term-bar: #111821;
+    --term-line: #1f2935;
+    --shadow: 0 1px 0 rgb(255 255 255 / 0.03) inset, 0 8px 24px -12px rgb(0 0 0 / 0.6);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0f141a;
+  --surface: #161d26;
+  --surface-2: #1b232e;
+  --ink: #e7ecf3;
+  --ink-2: #c3ccd9;
+  --muted: #8a96a8;
+  --line: #243040;
+  --line-strong: #33415a;
+  --accent: #7f9ff0;
+  --accent-ink: #0c1220;
+  --accent-soft: #1d2945;
+  --amber: #f0b050;
+  --amber-soft: #33270f;
+  --ok: #4cc47f;
+  --ok-soft: #13301f;
+  --bad: #f0685c;
+  --bad-soft: #3a1714;
+  --lamp-off: #3a4658;
+  --term-bg: #0a0e13;
+  --term-bar: #111821;
+  --term-line: #1f2935;
+  --shadow: 0 1px 0 rgb(255 255 255 / 0.03) inset, 0 8px 24px -12px rgb(0 0 0 / 0.6);
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 400 14.5px/1.5 var(--body); font-stretch: 100%;
+  -webkit-font-smoothing: antialiased;
+}
+button, select, input { font: inherit; color: inherit; }
+a { color: var(--accent); }
+code { font-family: var(--mono); font-size: 0.92em; }
+svg { flex: none; }
+[hidden] { display: none !important; }
+
+/* ------------------------------------------------------------------ frame */
+.moldura { max-width: 1380px; margin: 0 auto; padding-inline: 24px; }
+@media (max-width: 560px) { .moldura { padding-inline: 16px; } }
+
+header.topo {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20;
+  background: color-mix(in srgb, var(--bg) 86%, transparent);
+  backdrop-filter: saturate(1.4) blur(10px);
+  border-bottom: 1px solid var(--line);
+}
+.topo .moldura { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 20px; padding-block: 12px; }
+.marca { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 240px; }
+.marca-sinal {
+  width: 42px; height: 42px; border-radius: 11px; display: grid; place-items: center;
+  background: var(--accent); color: var(--accent-ink);
+}
+.eyebrow { font-size: 11.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+h1 {
+  margin: 0; font-family: var(--display); font-stretch: 118%; font-weight: 650;
+  font-size: 21px; letter-spacing: -0.01em; line-height: 1.15; text-wrap: balance;
+}
+.docker {
+  display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-2);
+  padding: 6px 12px 6px 10px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------------ lamps */
+.lamp { width: 9px; height: 9px; border-radius: 50%; background: var(--lamp-off); flex: none; }
+[data-s="ok"] > .lamp, [data-s="rodando"] > .lamp, .lamp.on { background: var(--ok); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 22%, transparent); }
+[data-s="off"] > .lamp, [data-s="falhou"] > .lamp { background: var(--bad); }
+[data-s="iniciando"] > .lamp { background: var(--amber); animation: pulsa 1.1s ease-in-out infinite; }
+@keyframes pulsa { 50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--amber) 25%, transparent); } }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+/* ------------------------------------------------------------------ buttons */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  min-height: 38px; padding: 0 14px; border-radius: 9px;
+  border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink);
+  font-weight: 550; font-size: 14px; cursor: pointer; text-decoration: none; white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s, transform 0.05s;
+}
+.btn:hover:not(:disabled) { border-color: var(--ink-2); }
+.btn:active:not(:disabled) { transform: translateY(1px); }
+.btn:disabled, a.btn[aria-disabled="true"] { opacity: 0.42; cursor: not-allowed; }
+a.btn[aria-disabled="true"] { pointer-events: none; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.primary:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 88%, var(--ink)); border-color: transparent; }
+.btn.stop { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 40%, var(--line)); background: transparent; }
+.btn.stop:hover:not(:disabled) { background: var(--bad-soft); border-color: var(--bad); }
+.btn.stop.confirmar { background: var(--bad); color: #fff; border-color: var(--bad); }
+.btn.quiet { background: transparent; }
+.btn.small { min-height: 32px; padding: 0 11px; font-size: 13px; }
+.btn:focus-visible, select:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ------------------------------------------------------------------ system strip */
+.sistema {
+  display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+  margin-top: 20px; padding: 14px 18px; border-radius: 14px;
+  background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow);
+}
+.cadeia { display: flex; align-items: center; gap: 6px; flex: 1 1 560px; min-width: 0; overflow-x: auto; scrollbar-width: thin; }
+.estacao { display: grid; grid-template-columns: auto auto; column-gap: 8px; align-items: center; padding: 4px 6px; flex: none; }
+.estacao b { font-weight: 600; font-size: 13.5px; color: var(--muted); transition: color 0.2s; }
+.estacao small { grid-column: 2; font-family: var(--mono); font-size: 11px; color: var(--muted); opacity: 0.8; }
+.estacao.on b { color: var(--ink); }
+.seta { color: var(--line-strong); font-size: 15px; }
+.resumo { font-size: 13px; color: var(--ink-2); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.resumo strong { font-weight: 600; }
+.aviso-versao {
+  flex-basis: 100%; margin: 0; padding: 10px 12px; border-radius: 9px; font-size: 13.5px;
+  background: var(--amber-soft); color: var(--ink); border: 1px solid color-mix(in srgb, var(--amber) 45%, transparent);
+}
+.aviso-versao b { color: var(--amber); }
+
+/* ------------------------------------------------------------------ layout */
+main.moldura { display: grid; gap: 28px; grid-template-columns: minmax(0, 1fr); padding-block: 8px 40px; }
+@media (min-width: 1140px) {
+  main.moldura { grid-template-columns: minmax(0, 1fr) minmax(360px, 0.6fr); align-items: start; }
+  .saida { position: sticky; top: 92px; height: calc(100vh - 112px); }
+}
+.secao { display: grid; gap: 12px; }
+.secao + .secao { margin-top: 26px; }
+.secao-titulo { display: flex; align-items: baseline; gap: 12px; }
+h2 { margin: 0; font-family: var(--display); font-stretch: 112%; font-size: 13px; font-weight: 650; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink-2); }
+.secao-titulo p { margin: 0; font-size: 13px; color: var(--muted); }
+
+.glyph {
+  width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center;
+  background: var(--accent-soft); color: var(--accent);
+}
+.estado {
+  display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--muted); white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.estado[data-s="rodando"] { color: var(--ok); }
+.estado[data-s="iniciando"] { color: var(--amber); }
+.estado[data-s="falhou"] { color: var(--bad); }
+.estado[data-s="ok"] { color: var(--ok); }
+.estado[data-s="ok"] > .lamp { box-shadow: none; }
+
+h3 { margin: 0; font-family: var(--display); font-stretch: 108%; font-size: 16.5px; font-weight: 620; letter-spacing: -0.005em; line-height: 1.25; }
+.desc { margin: 0; color: var(--ink-2); font-size: 14px; max-width: 62ch; }
+.spec { margin: 0; font-family: var(--mono); font-size: 11.5px; color: var(--muted); letter-spacing: 0.01em; }
+.acoes { display: flex; flex-wrap: wrap; gap: 8px; }
+.dica { margin: 0; font-size: 13px; color: var(--amber); }
+.dica:empty, .msg:empty { display: none; }
+.msg { margin: 0; font-size: 13px; color: var(--bad); padding: 8px 10px; border-radius: 8px; background: var(--bad-soft); }
+
+/* simulation cards */
+/* three across, or one per row: never two plus one left alone */
+.secao-sims { container-type: inline-size; }
+.sims { display: grid; gap: 14px; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; }
+@container (max-width: 700px) { .sims { grid-template-columns: minmax(0, 1fr); } }
+.sim {
+  display: flex; flex-direction: column; gap: 10px; padding: 16px 16px 14px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow);
+  transition: border-color 0.2s;
+}
+.sim.ativo { border-color: color-mix(in srgb, var(--ok) 55%, var(--line)); }
+.sim-topo { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px; }
+.sim .acoes { margin-top: 4px; }
+
+/* data rows */
+.lista { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); }
+.linha {
+  display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; gap: 6px 14px; align-items: start;
+  padding: 16px;
+}
+.linha + .linha { border-top: 1px solid var(--line); }
+.linha .corpo { display: grid; gap: 6px; min-width: 0; }
+.linha .cabeca { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.linha .acoes { justify-content: flex-end; }
+.linha.larga { grid-template-columns: 40px minmax(0, 1fr); }
+.linha.larga .cabeca .predefs { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
+@media (max-width: 640px) {
+  .linha { grid-template-columns: 40px minmax(0, 1fr); }
+  .linha .acoes { grid-column: 1 / -1; justify-content: flex-start; }
+}
+
+/* options */
+details.opcoes { margin-top: 2px; }
+summary {
+  cursor: pointer; width: fit-content; list-style: none; display: inline-flex; align-items: center; gap: 6px;
+  font-size: 13px; color: var(--muted); padding: 2px 0;
+}
+summary::-webkit-details-marker { display: none; }
+summary::before { content: ""; width: 6px; height: 6px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(-45deg); transition: transform 0.15s; margin-right: 2px; }
+details[open] > summary::before { transform: rotate(45deg); }
+summary:hover { color: var(--ink); }
+.campos { display: grid; gap: 10px; margin-top: 10px; padding: 12px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--line); }
+.lista .campos { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+.campo { display: grid; gap: 4px; font-size: 14px; min-width: 0; }
+.campo > span:first-child { color: var(--muted); font-size: 12px; letter-spacing: 0.02em; }
+.campo select, .campo input[type=number] {
+  width: 100%; min-height: 36px; padding: 4px 10px; border-radius: 8px;
+  border: 1px solid var(--line-strong); background: var(--surface); font-variant-numeric: tabular-nums;
+}
+.check { display: flex; align-items: flex-start; gap: 9px; font-size: 14px; cursor: pointer; line-height: 1.35; }
+.check input { width: 17px; height: 17px; margin: 1px 0 0; accent-color: var(--accent); flex: none; }
+.par { display: flex; gap: 8px; }
+.lista .campos .check { grid-column: 1 / -1; }
+
+/* signal parameters: layer mode and bands */
+fieldset.camadas { margin: 12px 0 0; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); display: grid; gap: 12px; min-width: 0; }
+fieldset.camadas legend { padding: 0 6px; font-size: 12px; letter-spacing: 0.02em; color: var(--muted); }
+.modos { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+.modo { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 9px; border: 1px solid var(--line-strong); background: var(--surface); cursor: pointer; }
+.modo:has(input:checked) { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.modo input { margin: 3px 0 0; accent-color: var(--accent); flex: none; }
+.modo b { display: block; font-weight: 600; font-size: 14px; }
+.modo small { display: block; color: var(--muted); font-size: 12.5px; line-height: 1.4; margin-top: 2px; }
+.faixas { display: flex; flex-wrap: wrap; gap: 8px; }
+.faixa {
+  display: grid; grid-template-columns: auto auto; column-gap: 8px; align-items: center;
+  padding: 7px 11px; border-radius: 9px; border: 1px solid var(--line-strong); background: var(--surface); cursor: pointer;
+}
+.faixa:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.faixa input { accent-color: var(--accent); margin: 0; }
+.faixa b { font-family: var(--mono); font-weight: 500; font-size: 13px; }
+.faixa small { grid-column: 2; font-family: var(--mono); font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.faixas[aria-disabled="true"] .faixa { opacity: 0.45; cursor: not-allowed; }
+.nota { margin: 0; font-size: 13px; color: var(--amber); }
+fieldset .campos { margin: 0; padding: 0; border: 0; background: none; }
+.dica-taxa, .dica-campos { grid-column: 1 / -1; margin: -4px 0 0; font-size: 12.5px; color: var(--muted); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.dica-taxa { color: var(--amber); }
+
+/* maintenance toolbar */
+.ferramentas {
+  display: flex; flex-wrap: wrap; gap: 10px 22px; align-items: center;
+  padding: 12px 16px; border-radius: 14px; background: var(--surface-2); border: 1px solid var(--line);
+}
+.grupo { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.grupo > span { font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin-right: 2px; }
+.ferramentas .msg { flex-basis: 100%; }
+
+/* ------------------------------------------------------------------ terminal */
+.saida {
+  display: flex; flex-direction: column; min-height: 360px; overflow: hidden;
+  background: var(--term-bg); color: var(--term-ink); border: 1px solid var(--term-line); border-radius: 14px;
+  box-shadow: var(--shadow);
+}
+.saida-barra { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--term-bar); border-bottom: 1px solid var(--term-line); }
+.saida-barra h2 { color: var(--term-muted); font-size: 12px; }
+.saida-barra select {
+  flex: 1; min-width: 0; min-height: 32px; padding: 2px 8px; border-radius: 7px;
+  background: var(--term-bg); color: var(--term-ink); border: 1px solid var(--term-line); color-scheme: dark;
+}
+.saida-status { display: flex; align-items: center; gap: 8px; padding: 8px 14px; font-size: 12.5px; color: var(--term-muted); border-bottom: 1px solid var(--term-line); min-height: 36px; }
+.codigo { font-family: var(--mono); font-size: 11.5px; padding: 1px 7px; border-radius: 5px; border: 1px solid currentColor; }
+.codigo.ok { color: #58cf8a; }
+.codigo.erro { color: #ff8074; }
+pre#log {
+  flex: 1; margin: 0; padding: 12px 14px 16px; overflow: auto;
+  font: 12.5px/1.55 var(--mono); white-space: pre-wrap; word-break: break-word;
+}
+pre#log .cmd { color: var(--term-cmd); }
+pre#log .cmd::before { content: ""; }
+pre#log .vazio { color: var(--term-muted); }
+.saida-pe { display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-top: 1px solid var(--term-line); font-size: 12.5px; color: var(--term-muted); }
+.saida-pe .check { margin-left: auto; font-size: 12.5px; }
+.saida-pe .btn.stop { border-color: #5a2a26; color: #ff8074; }
+.saida-pe .btn.stop:hover { background: #2a1412; }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-braco" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20.5h7"/><path d="M6 20.5v-4h3v4"/><circle cx="7.5" cy="15" r="1.4"/><path d="M8.5 14 13 9.5"/><circle cx="14" cy="8.5" r="1.4"/><path d="M15.3 8 19 6.5"/><path d="M18.4 4.8 20 7.2l-2.5 1"/></g></symbol>
+    <symbol id="i-semg" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M2 12h3.5l1.4-3.5 1.8 8 1.9-12 2 13 1.6-8 1.2 3.5 1.1-1.5H22"/></symbol>
+    <symbol id="i-espelho" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5h3l1.5-2.2h5L14 8.5h3a1.5 1.5 0 0 1 1.5 1.5v7A1.5 1.5 0 0 1 17 18.5H3.5A1.5 1.5 0 0 1 2 17v-7a1.5 1.5 0 0 1 1-1.5z"/><circle cx="10.2" cy="13.3" r="3"/><path d="M20.5 9v8"/></g></symbol>
+    <symbol id="i-captura" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="12" r="3"/><path d="M11 12h1.5l1.2-3 1.6 6 1.5-8 1.5 7 1-2H22"/></g><circle cx="6" cy="12" r="1.3" fill="currentColor"/></symbol>
+    <symbol id="i-treino" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 20 20 4" stroke-dasharray="0.1 3.2"/><circle cx="6.5" cy="8" r="1.6"/><circle cx="9.5" cy="5.5" r="1.6"/><circle cx="5" cy="12.5" r="1.6"/></g><g fill="currentColor"><circle cx="17.5" cy="16" r="1.8"/><circle cx="14" cy="19" r="1.8"/><circle cx="19" cy="11.5" r="1.8"/></g></symbol>
+    <symbol id="i-analise" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3.5v16.5h16.5"/><path d="M4 20c1.2-7 4.5-11.5 15.5-13"/><path d="M4 20 19.5 4.5" stroke-dasharray="1.5 2.5" opacity="0.55"/></g></symbol>
+    <symbol id="i-wavelet" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M2 13h3.5c.9 0 1.3-.8 1.8-2.2.6-1.7 1.1-3.8 2-3.8s1.2 2.7 1.7 5.6c.5 2.9 1 5.4 1.9 5.4s1.4-3.4 2-6.6c.4-2.1.9-3.9 1.6-3.9.8 0 1.2 2.2 1.6 3.9.3 1.1.7 1.6 1.4 1.6H22"/></symbol>
+    <symbol id="i-rede" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="4.5" cy="16" r="2"/><circle cx="12" cy="16" r="2"/><circle cx="19.5" cy="16" r="2"/><path d="M6.5 16h3.5M14 16h3.5"/><path d="M10.6 14.4C8.6 9 15.4 9 13.4 14.4"/><path d="M13.6 11.9l-.2 2.5 2.2-1"/></g></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path fill="currentColor" d="M8 5.6v12.8a.8.8 0 0 0 1.2.7l10.3-6.4a.8.8 0 0 0 0-1.4L9.2 4.9A.8.8 0 0 0 8 5.6z"/></symbol>
+    <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/></symbol>
+    <symbol id="i-fora" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 5h5v5"/><path d="M19 5 10 14"/><path d="M17 14v4.5a1.5 1.5 0 0 1-1.5 1.5h-10A1.5 1.5 0 0 1 4 18.5v-10A1.5 1.5 0 0 1 5.5 7H10"/></g></symbol>
+    <symbol id="i-pasta" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M3 7.5A1.5 1.5 0 0 1 4.5 6h4.2l2 2.2h8.8A1.5 1.5 0 0 1 21 9.7v8.8a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z"/></symbol>
+  </defs>
+</svg>
+
+<header class="topo">
+  <div class="moldura">
+    <div class="marca">
+      <span class="marca-sinal" aria-hidden="true"><svg width="24" height="24"><use href="#i-braco"/></svg></span>
+      <div>
+        <div class="eyebrow">Simulador de prótese controlada por sEMG · UFABC</div>
+        <h1>Painel do projeto</h1>
+      </div>
+    </div>
+    <span class="docker" id="docker" data-s="?"><span class="lamp"></span><span id="dockerTxt">verificando o Docker…</span></span>
+    <button class="btn small" id="abrirDocker" data-acao="abrir_docker" hidden>Abrir o Docker Desktop</button>
+    <button class="btn stop" id="pararTudo" data-acao="parar_tudo" title="Para todos os containers do projeto (scripts/stop.sh)"><svg width="14" height="14"><use href="#i-stop"/></svg><span>Parar tudo</span></button>
+  </div>
+</header>
+
+<div class="moldura">
+  <section class="sistema" aria-label="O que está rodando">
+    <div class="cadeia" id="cadeia">
+      <span class="estacao" data-estacao="camera"><span class="lamp"></span><b>Câmera</b><small>MediaPipe</small></span>
+      <span class="seta" aria-hidden="true">·</span>
+      <span class="estacao" data-estacao="semg"><span class="lamp"></span><b>sEMG</b><small>200 Hz · 8 canais</small></span>
+      <span class="seta" aria-hidden="true">→</span>
+      <span class="estacao" data-estacao="classificador"><span class="lamp"></span><b>Classificador</b><small>features → modelo</small></span>
+      <span class="seta" aria-hidden="true">→</span>
+      <span class="estacao" data-estacao="braco"><span class="lamp"></span><b>Braço</b><small>Gazebo Jetty</small></span>
+      <span class="seta" aria-hidden="true">→</span>
+      <span class="estacao" data-estacao="pagina"><span class="lamp"></span><b>Página</b><small>:8080</small></span>
+    </div>
+    <div class="resumo" id="resumo">verificando…</div>
+    <p class="aviso-versao" id="avisoVersao" role="alert" hidden><b>O painel foi atualizado depois de aberto.</b> Feche a janela preta do painel e abra de novo o Painel do projeto. Até lá, só os botões de parar funcionam.</p>
+  </section>
+</div>
+
+<main class="moldura">
+  <div>
+    <section class="secao secao-sims">
+      <div class="secao-titulo"><h2>Simulação</h2><p>uma de cada vez</p></div>
+      <div class="sims">
+        <article class="sim" data-card="braco">
+          <div class="sim-topo"><span class="glyph" aria-hidden="true"><svg width="22" height="22"><use href="#i-braco"/></svg></span><span class="estado" data-badge><span class="lamp"></span><span data-txt>parado</span></span></div>
+          <h3>Braço pelo navegador</h3>
+          <p class="desc">Pilote o braço por uma página: setas, deslizadores, comando × real e parada de emergência.</p>
+          <p class="spec">Gazebo sem janela · página :8080</p>
+          <div class="acoes">
+            <button class="btn primary" data-iniciar><svg width="14" height="14"><use href="#i-play"/></svg>Iniciar</button>
+            <a class="btn primary" data-abrir href="http://localhost:8080" target="_blank" rel="noopener" hidden><span data-rotulo>Abrir o controle</span><svg width="15" height="15"><use href="#i-fora"/></svg></a>
+            <button class="btn quiet" data-ver hidden>Ver a saída</button>
+            <button class="btn stop" data-parar hidden><svg width="13" height="13"><use href="#i-stop"/></svg>Parar</button>
+          </div>
+          <p class="dica" data-dica></p>
+          <details class="opcoes"><summary>Opções</summary><div class="campos">
+            <label class="check" data-precisa-janela><input type="checkbox" name="janela" id="braco-janela"> Mostrar também a janela do Gazebo</label>
+          </div></details>
+          <p class="msg" data-msg></p>
+        </article>
+
+        <article class="sim" data-card="sistema">
+          <div class="sim-topo"><span class="glyph" aria-hidden="true"><svg width="22" height="22"><use href="#i-semg"/></svg></span><span class="estado" data-badge><span class="lamp"></span><span data-txt>parado</span></span></div>
+          <h3>Sistema completo</h3>
+          <p class="desc">O mestrado de ponta a ponta: o braço dobra conforme o classificador reconhece cada trecho do sinal.</p>
+          <p class="spec">sEMG → MAV → classificador → cotovelo</p>
+          <div class="acoes">
+            <button class="btn primary" data-iniciar><svg width="14" height="14"><use href="#i-play"/></svg>Iniciar</button>
+            <a class="btn primary" data-abrir href="http://localhost:8080" target="_blank" rel="noopener" hidden><span data-rotulo>Acompanhar</span><svg width="15" height="15"><use href="#i-fora"/></svg></a>
+            <button class="btn quiet" data-ver hidden>Ver a saída</button>
+            <button class="btn stop" data-parar hidden><svg width="13" height="13"><use href="#i-stop"/></svg>Parar</button>
+          </div>
+          <p class="dica" data-dica></p>
+          <details class="opcoes"><summary>Opções</summary><div class="campos">
+            <label class="campo"><span>Fonte do sEMG</span><select name="fonte" id="sistema-fonte">
+              <option value="gravacao">Gravação do mestrado (sem hardware)</option>
+              <option value="myo">Faixa Myo (precisa do dongle)</option></select></label>
+            <label class="campo" data-so-gravacao><span>Gravação</span><select name="csv" id="sistema-csv" data-lista="csvs"></select></label>
+            <label class="campo"><span>Classificador</span><select name="modelo" id="sistema-modelo" data-lista="modelos"></select></label>
+            <label class="check"><input type="checkbox" name="pagina" id="sistema-pagina" checked> Acompanhar pela página do braço</label>
+            <label class="check" data-precisa-janela><input type="checkbox" name="janela" id="sistema-janela"> Janela do Gazebo</label>
+          </div></details>
+          <p class="msg" data-msg></p>
+        </article>
+
+        <article class="sim" data-card="espelho">
+          <div class="sim-topo"><span class="glyph" aria-hidden="true"><svg width="22" height="22"><use href="#i-espelho"/></svg></span><span class="estado" data-badge><span class="lamp"></span><span data-txt>parado</span></span></div>
+          <h3>Modo espelho</h3>
+          <p class="desc">O braço copia o cotovelo visto num vídeo, por visão computacional. Não usa sEMG.</p>
+          <p class="spec">ângulo da câmera → cotovelo (180° − ângulo)</p>
+          <div class="acoes">
+            <button class="btn primary" data-iniciar><svg width="14" height="14"><use href="#i-play"/></svg>Iniciar</button>
+            <a class="btn primary" data-abrir href="http://localhost:8080" target="_blank" rel="noopener" hidden><span data-rotulo>Ver na página</span><svg width="15" height="15"><use href="#i-fora"/></svg></a>
+            <button class="btn quiet" data-ver hidden>Ver a saída</button>
+            <button class="btn stop" data-parar hidden><svg width="13" height="13"><use href="#i-stop"/></svg>Parar</button>
+          </div>
+          <p class="dica" data-dica></p>
+          <details class="opcoes"><summary>Opções</summary><div class="campos">
+            <label class="campo"><span>Vídeo</span><select name="video" id="espelho-video" data-lista="videos"></select></label>
+            <label class="check"><input type="checkbox" name="espelhar" id="espelho-espelhar"> Espelhar a imagem (o vídeo do mestrado já está espelhado)</label>
+            <label class="campo"><span>Braço</span><select name="lado" id="espelho-lado"><option value="right">direito</option><option value="left">esquerdo</option></select></label>
+            <label class="check" data-precisa-janela><input type="checkbox" name="janela" id="espelho-janela" checked> Janelas da câmera e do Gazebo</label>
+            <label class="check"><input type="checkbox" name="pagina" id="espelho-pagina"> Ver também na página do braço</label>
+          </div></details>
+          <p class="msg" data-msg></p>
+        </article>
+      </div>
+    </section>
+
+    <section class="secao">
+      <div class="secao-titulo"><h2>Dados e resultados</h2><p>gravar, treinar, conferir</p></div>
+      <div class="lista">
+        <div class="linha" data-card="captura">
+          <span class="glyph" aria-hidden="true"><svg width="22" height="22"><use href="#i-captura"/></svg></span>
+          <div class="corpo">
+            <div class="cabeca"><h3>Captura de dados</h3><span class="estado" data-badge hidden><span class="lamp"></span><span data-txt></span></span></div>
+            <p class="desc">Grava sEMG rotulado pelo ângulo do cotovelo medido pela câmera. Termina sozinha quando as categorias enchem.</p>
+            <p class="spec">categorias de 170°, 90°, 60° e 45° · CSV em data/</p>
+            <p class="dica" data-dica></p>
+            <details class="opcoes"><summary>Opções</summary><div class="campos">
+              <label class="campo"><span>Fonte do sEMG</span><select name="fonte" id="captura-fonte">
+                <option value="gravacao">Gravação do mestrado (demonstração)</option>
+                <option value="myo">Faixa Myo (precisa do dongle)</option></select></label>
+              <label class="campo" data-so-gravacao><span>Gravação</span><select name="csv" id="captura-csv" data-lista="csvs"></select></label>
+              <label class="campo"><span>Vídeo</span><select name="video" id="captura-video" data-lista="videos"></select></label>
+              <label class="campo"><span>Braço</span><select name="lado" id="captura-lado"><option value="right">direito</option><option value="left">esquerdo</option></select></label>
+              <label class="campo"><span>Categorias</span><select name="categorias" id="captura-categorias">
+                <option value="2">2 · 170° e 90°</option><option value="3">3 · + 60°</option><option value="4">4 · + 45°</option></select></label>
+              <label class="campo"><span>Tolerância (°)</span><input type="number" name="tolerancia" id="captura-tolerancia" value="10" min="1" max="45" step="1"></label>
+              <label class="campo"><span>Amostras por categoria</span><input type="number" name="amostras" id="captura-amostras" value="1000" min="10" max="100000" step="10"></label>
+              <label class="check"><input type="checkbox" name="espelhar" id="captura-espelhar"> Espelhar a imagem</label>
+              <label class="check"><input type="checkbox" name="continuo" id="captura-continuo"> Gravar também fora das categorias (para regressão contínua)</label>
+              <label class="check" data-precisa-janela><input type="checkbox" name="janela" id="captura-janela" checked> Janela da câmera</label>
+            </div></details>
+            <p class="msg" data-msg></p>
+          </div>
+          <div class="acoes">
+            <button class="btn primary" data-iniciar><svg width="14" height="14"><use href="#i-play"/></svg>Gravar</button>
+            <button class="btn stop" data-parar hidden><svg width="13" height="13"><use href="#i-stop"/></svg>Parar e salvar</button>
+          </div>
+        </div>
+
+        <div class="linha larga" data-card="parametros">
+          <span class="glyph" aria-hidden="true"><svg width="22" height="22"><use href="#i-wavelet"/></svg></span>
+          <div class="corpo">
+            <div class="cabeca"><h3>Parâmetros do sinal</h3><span class="predefs"><button class="btn quiet small" id="sinalDisciplina" title="gestos_1khz.csv como no app da disciplina: 1000 Hz, RMS, janela 200 ms, sorteio com 20 % de teste, semente 5">Como na disciplina</button><button class="btn quiet small" id="sinalPadrao" title="volta aos parâmetros do mestrado">Restaurar o do mestrado</button></span></div>
+            <p class="desc">Valem para treinar e para analisar, como na tela de treino do mestrado. O classificador guarda os seus junto com o modelo e os usa na simulação.</p>
+            <p class="spec" id="resumoSinal">6_10_20220.csv · MAV · db7, 4 níveis · como no mestrado · janela 250 ms</p>
+            <details class="opcoes" id="opcoesSinal"><summary>Escolher</summary>
+              <div class="campos">
+                <label class="campo"><span>Gravação</span><select name="csv" id="sinal-csv" data-lista="csvs"></select></label>
+                <label class="campo"><span>Frequência de amostragem (Hz)</span><input type="number" name="fs" id="sinal-fs" value="200" min="20" max="20000" step="1"></label>
+                <p class="dica-taxa" id="dicaTaxa" hidden><span></span> <button type="button" class="btn quiet small" id="usarTaxa"></button></p>
+                <label class="campo"><span>Feature</span><select name="feature" id="sinal-feature"><option value="mav">MAV (média absoluta)</option><option value="rms">RMS</option></select></label>
+                <label class="campo"><span>Divisão treino/teste</span><select name="divisao" id="sinal-divisao"><option value="temporal">temporal (blocos)</option><option value="legacy">legacy (sorteio do mestrado)</option></select></label>
+                <label class="campo"><span>Semente</span><input type="number" name="semente" id="sinal-semente" value="42" min="0" step="1"></label>
+                <label class="campo"><span>Parte de teste (%)</span><input type="number" name="teste" id="sinal-teste" value="30" min="5" max="50" step="5"></label>
+                <label class="campo"><span>Janela (ms)</span><input type="number" name="janela" id="sinal-janela" value="250" min="20" max="2000" step="5"></label>
+                <label class="campo"><span>Wavelet-mãe</span><select name="wavelet" id="sinal-wavelet"></select></label>
+                <label class="campo"><span>Níveis da decomposição</span><select name="niveis" id="sinal-niveis"></select></label>
+              </div>
+              <fieldset class="camadas" id="blocoFiltros">
+                <legend>Filtros IIR</legend>
+                <div class="modos" role="radiogroup">
+                  <label class="modo"><input type="radio" name="filtros" value="mestrado" id="sinal-filtros-mestrado" checked><span><b>Do mestrado</b><small id="textoFiltrosMestrado">Passa-altas em ~14 Hz e rejeita-faixa em 60 Hz, projetados para 200 Hz.</small></span></label>
+                  <label class="modo"><input type="radio" name="filtros" value="projetados" id="sinal-filtros-projetados"><span><b>Projetados para a frequência</b><small>Butterworth: passa-altas de 4ª ordem e rejeita-faixa de 2ª ordem em volta da rede elétrica.</small></span></label>
+                  <label class="modo"><input type="radio" name="filtros" value="arquivos" id="sinal-filtros-arquivos"><span><b>De arquivos</b><small>Como no app do mestrado: coeficientes SOS guardados em data/filtros/.</small></span></label>
+                </div>
+                <div class="campos" data-so-filtros="projetados" hidden>
+                  <label class="campo"><span>Passa-altas (Hz)</span><input type="number" name="passa_altas_hz" id="sinal-passa-altas" value="20" min="0.1" step="0.5"></label>
+                  <label class="campo"><span>Rede elétrica</span><select name="rede_hz" id="sinal-rede"><option value="60">60 Hz (Brasil)</option><option value="50">50 Hz</option><option value="0">sem rejeita-faixa</option></select></label>
+                </div>
+                <div class="campos" data-so-filtros="arquivos" hidden>
+                  <label class="campo"><span>Passa-altas</span><select name="arquivo_passa_altas" id="sinal-arquivo-hp" data-lista="filtros"></select></label>
+                  <label class="campo"><span>Rejeita-faixa</span><select name="arquivo_rejeita_faixa" id="sinal-arquivo-bs" data-lista="filtros"></select></label>
+                  <p class="dica-campos">Formatos: o do app do mestrado (<code>Filter,Value,…</code>), 6 números por linha, JSON ou <code>.npy</code>. O treino confere se o filtro é estável e mostra onde ele corta.</p>
+                </div>
+                <p class="nota" id="notaFiltros" hidden></p>
+              </fieldset>
+              <fieldset class="camadas">
+                <legend>Camadas</legend>
+                <div class="modos" role="radiogroup">
+                  <label class="modo"><input type="radio" name="modo" value="mestrado" id="sinal-modo-mestrado" checked><span><b>Como no mestrado</b><small>Reproduz o código original e os modelos históricos. Nele a escolha de camadas não faz efeito: o laço só visita uma posição e remove sempre o D<i data-nivel>4</i>.</small></span></label>
+                  <label class="modo"><input type="radio" name="modo" value="faixas" id="sinal-modo-faixas"><span><b>Faixas escolhidas</b><small>O que a tela do mestrado prometia: ficam só as faixas marcadas, o resto é zerado antes do MAV/RMS.</small></span></label>
+                </div>
+                <div class="faixas" id="faixas" aria-label="Faixas da decomposição, em Hz a 200 amostras/s"></div>
+                <p class="nota" id="notaNivel" hidden></p>
+              </fieldset>
+            </details>
+            <p class="msg" data-msg></p>
+          </div>
+        </div>
+
+        <div class="linha" data-card="treino">
+          <span class="glyph" aria-hidden="true"><svg width="22" height="22"><use href="#i-treino"/></svg></span>
+          <div class="corpo">
+            <div class="cabeca"><h3>Treinar os classificadores</h3><span class="estado" data-badge hidden><span class="lamp"></span><span data-txt></span></span></div>
+            <p class="desc">Os cinco classificadores do mestrado, com os parâmetros do sinal acima.</p>
+            <p class="spec">k-NN · LDA · Gauss NB · SVM linear · árvore → models/</p>
+            <p class="msg" data-msg></p>
+          </div>
+          <div class="acoes"><button class="btn primary" data-iniciar><svg width="14" height="14"><use href="#i-play"/></svg>Treinar</button></div>
+        </div>
+
+        <div class="linha" data-card="analise">
+          <span class="glyph" aria-hidden="true"><svg width="22" height="22"><use href="#i-analise"/></svg></span>
+          <div class="corpo">
+            <div class="cabeca"><h3>Analisar os resultados</h3><span class="estado" data-badge hidden><span class="lamp"></span><span data-txt></span></span></div>
+            <p class="desc">Acurácia, matrizes de confusão, ROC, sinal bruto e validação cruzada, com os parâmetros do sinal acima. Quando a gravação diz quem gravou (os gestos da disciplina), testa também cada participante com o modelo dos outros.</p>
+            <p class="spec">figuras PNG + resumo.md → models/analise/</p>
+            <details class="opcoes"><summary>Opções</summary><div class="campos">
+              <label class="campo"><span>Partições da validação</span><input type="number" name="particoes" id="analise-particoes" value="5" min="2" max="20" step="1"></label>
+              <label class="campo"><span>Canais no gráfico</span><span class="par"><select name="canal_a" id="analise-canal-a" aria-label="Primeiro canal"></select><select name="canal_b" id="analise-canal-b" aria-label="Segundo canal"></select></span></label>
+              <label class="campo"><span>Abrir as figuras de</span><select name="pasta" id="analise-pasta" data-lista="analises"></select></label>
+            </div></details>
+            <p class="msg" data-msg></p>
+          </div>
+          <div class="acoes">
+            <button class="btn primary" data-iniciar><svg width="14" height="14"><use href="#i-play"/></svg>Analisar</button>
+            <button class="btn" data-figuras><svg width="15" height="15"><use href="#i-pasta"/></svg>Figuras</button>
+          </div>
+        </div>
+
+        <div class="linha" data-card="lstm">
+          <span class="glyph" aria-hidden="true"><svg width="22" height="22"><use href="#i-rede"/></svg></span>
+          <div class="corpo">
+            <div class="cabeca"><h3>Refazer a LSTM da disciplina</h3><span class="estado" data-badge hidden><span class="lamp"></span><span data-txt></span></span></div>
+            <p class="desc">A rede do notebook PyTorch da disciplina, sem mudar nada, treinada de novo em três divisões: a do notebook (o teste repete janelas do treino), sorteio sem repetição e participante novo. Usa os gestos da disciplina e uma imagem própria com PyTorch (1,7 GB, só na primeira vez).</p>
+            <p class="spec">30 treinos de 200 épocas · ~1 min · resumo e figuras → models/analise/gestos-1khz_lstm/</p>
+            <details class="opcoes"><summary>Opções</summary><div class="campos">
+              <label class="campo"><span>Épocas</span><input type="number" name="epocas" id="lstm-epocas" value="200" min="1" max="1000" step="10"></label>
+              <label class="campo"><span>Sementes</span><input type="number" name="repeticoes" id="lstm-repeticoes" value="3" min="1" max="10" step="1"></label>
+            </div></details>
+            <p class="msg" data-msg></p>
+          </div>
+          <div class="acoes">
+            <button class="btn primary" data-iniciar><svg width="14" height="14"><use href="#i-play"/></svg>Treinar</button>
+            <button class="btn stop" data-parar hidden><svg width="13" height="13"><use href="#i-stop"/></svg>Parar</button>
+            <button class="btn" data-figuras data-pasta="gestos-1khz_lstm"><svg width="15" height="15"><use href="#i-pasta"/></svg>Figuras</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="secao">
+      <div class="secao-titulo"><h2>Manutenção</h2></div>
+      <div class="ferramentas" data-card="manutencao">
+        <div class="grupo"><span>Testes</span>
+          <button class="btn small" data-acao="testes_rapido" title="compose, ruff e testes unitários">Rápido · 30 s</button>
+          <button class="btn small" data-acao="testes_completo" title="o mesmo que o CI do GitHub: imagem, testes e ponta a ponta">Completo · 2 min</button>
+        </div>
+        <div class="grupo"><span>Docker</span>
+          <button class="btn small" data-acao="verificar">Verificar</button>
+          <button class="btn small" data-acao="imagem" title="depois de mudar o código">Construir a imagem</button>
+        </div>
+        <div class="grupo"><span>Dados</span>
+          <button class="btn small" data-acao="dados">Baixar os dados do mestrado</button>
+          <button class="btn small" data-acao="dados_gestos" title="8 participantes × 5 gestos, 4 canais a 1000 Hz (82 MB) → data/gestos_1khz.csv">Gestos da disciplina</button>
+        </div>
+        <p class="msg" data-msg></p>
+      </div>
+    </section>
+  </div>
+
+  <aside class="saida" aria-label="Saída">
+    <div class="saida-barra"><h2>Saída</h2><select id="tarefaSel" aria-label="Tarefa"><option value="">nada executado ainda</option></select></div>
+    <div class="saida-status" id="saidaStatus">Cada botão mostra aqui o comando que roda e o que ele imprime.</div>
+    <pre id="log"><span class="vazio"># Clique em Iniciar num cartão.
+# O comando aparece aqui em azul, seguido da saída dele, ao vivo.
+# É o mesmo comando que você digitaria no terminal do Ubuntu.</span></pre>
+    <div class="saida-pe">
+      <button class="btn small stop" id="pararTarefa" hidden>Parar esta tarefa</button>
+      <label class="check"><input type="checkbox" id="rolar" checked> acompanhar o fim</label>
+    </div>
+  </aside>
+</main>
+
+<script>
+"use strict";
+
+const SERVICOS = {  // simulation cards: the container they start, and their stop/view actions
+  braco: { servico: "braco", parar: "parar_braco", ver: "ver_braco" },
+  sistema: { servico: "sim", parar: "parar_sistema", ver: "ver_sistema" },
+  espelho: { servico: "espelho", parar: "parar_espelho", ver: "ver_espelho" },
+};
+const PRINCIPAIS = ["braco", "sim", "espelho", "captura", "shell"];
+const NOME_SERVICO = { braco: "o braço", sim: "o sistema completo", espelho: "o modo espelho", captura: "a captura", shell: "um terminal do projeto" };
+const ESTACOES = {  // which part of the chain each running service lights up
+  camera: (s) => s.has("espelho") || s.has("captura"),
+  semg: (s) => s.has("sim") || s.has("captura"),
+  classificador: (s) => s.has("sim"),
+  braco: (s) => s.has("braco") || s.has("sim") || s.has("espelho"),
+  pagina: (s) => s.has("web"),
+};
+const NOME_CURTO = { braco: "braço", sim: "sistema completo", espelho: "modo espelho", captura: "captura", shell: "terminal", web: "página do braço", "web-portas": null, train: "treino/análise" };
+const CLASSIFICADOR = { knn: "k-NN", lda: "LDA", gnb: "Gauss Naive Bayes", lin_svm: "SVM linear", tree: "Árvore de decisão" };
+const VIDEO_ESPELHADO = "test_2_05.avi";
+const SEGUE_LOGS = ["braco", "sistema", "espelho", "ver_braco", "ver_sistema", "ver_espelho"];
+
+let estado = null;
+let selecionada = null;   // task shown in the output panel
+let desde = 0;
+let lendo = false;
+
+// ------------------------------------------------------------ helpers
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+const guardar = (k, v) => { try { localStorage.setItem("painel:" + k, JSON.stringify(v)); } catch {} };
+const lembrar = (k) => { try { const v = localStorage.getItem("painel:" + k); return v == null ? undefined : JSON.parse(v); } catch { return undefined; } };
+const hora = (t) => new Date(t * 1000).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+
+async function post(url, corpo) {
+  const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json", "X-Painel": "1" }, body: JSON.stringify(corpo) });
+  const dados = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(dados.erro || "erro " + r.status);
+  return dados;
+}
+
+function params(card) {
+  const p = {};
+  for (const el of $$("[name]", card)) {
+    if (el.closest("[hidden]")) continue;
+    if (el.type === "radio") { if (el.checked) p[el.name] = el.value; continue; }
+    if (el.name === "camadas") { (p.camadas ??= []); if (el.checked) p.camadas.push(Number(el.value)); continue; }
+    p[el.name] = el.type === "checkbox" ? el.checked : el.value;
+  }
+  if ("canal_a" in p) { p.canais = `${p.canal_a} ${p.canal_b}`; delete p.canal_a; delete p.canal_b; }
+  return p;
+}
+// training and analysis share the signal parameters, as on the thesis screen
+const USA_SINAL = ["treino", "analise"];
+// cards that run one task to its end (not a simulation)
+const TAREFAS = ["captura", "treino", "analise", "lstm"];
+function paramsDe(card) {
+  const p = params($(`[data-card="${card}"]`));
+  return USA_SINAL.includes(card) ? { ...params($('[data-card="parametros"]')), ...p } : p;
+}
+
+function mensagem(card, texto) { const m = $("[data-msg]", card); if (m) m.textContent = texto || ""; }
+
+async function executar(acao, p, card) {
+  if (card) mensagem(card, "");
+  try {
+    const { tarefa } = await post("/api/acao", { acao, params: p || {} });
+    selecionar(tarefa);
+    atualizar();
+  } catch (e) {
+    if (card) mensagem(card, e.message);
+    else $("#resumo").textContent = e.message;
+  }
+}
+
+function marcar(el, s, texto) {  // status pill: lamp + text
+  el.dataset.s = s;
+  $("[data-txt]", el).textContent = texto;
+}
+
+// ------------------------------------------------------------ options (lists from the server, remembered choices)
+function rotuloModelo(nome) {
+  const m = /^(knn|lda|gnb|lin_svm|tree)_([^_]+)_(mav|rms)_(temporal|legacy)(?:_(.+))?_latest\.joblib$/.exec(nome);
+  return m ? `${CLASSIFICADOR[m[1]]} · ${m[2]} · ${m[3]} ${m[4]}${m[5] ? " · " + m[5] : ""}` : nome;
+}
+
+// ------------------------------------------------------------ signal parameters (wavelet)
+const WAVELETS = [
+  ["Daubechies", Array.from({ length: 20 }, (_, i) => `db${i + 1}`)],
+  ["Symlets", Array.from({ length: 9 }, (_, i) => `sym${i + 2}`)],
+  ["Coiflets", Array.from({ length: 5 }, (_, i) => `coif${i + 1}`)],
+  ["Haar", ["haar"]],
+];
+const SINAL_PADRAO = {
+  fs: "200", filtros: "mestrado", passa_altas_hz: "20", rede_hz: "60", arquivo_passa_altas: "", arquivo_rejeita_faixa: "",
+  feature: "mav", divisao: "temporal", semente: "42", teste: "30", janela: "250", wavelet: "db7", niveis: "4", modo: "mestrado", camadas: [1, 2], aproximacao: false,
+};
+// the course project's run of the thesis app (scripts/fetch_gesture_data.sh; docs/ANALISE_GESTOS.md)
+const GESTOS_CSV = "gestos_1khz.csv";
+const SINAL_DISCIPLINA = {
+  ...SINAL_PADRAO, csv: GESTOS_CSV, fs: "1000", feature: "rms", divisao: "legacy", semente: "5", teste: "20", janela: "200",
+};
+const fsAtual = () => Number($("#sinal-fs").value) || 200;
+const hz = (x) => x.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
+// where the thesis coefficients act, measured at 200 Hz (features.filter_report); they scale with fs
+const MESTRADO_HP_HZ = 14.28, MESTRADO_RF_HZ = 60.08;
+
+function decLen(w) {  // filter length, as pywt.Wavelet(w).dec_len
+  if (w === "haar") return 2;
+  const m = /^(db|sym|coif)(\d+)$/.exec(w);
+  return !m ? 0 : m[1] === "coif" ? 6 * Number(m[2]) : 2 * Number(m[2]);
+}
+function nivelUtil(amostras, w) {  // pywt.dwt_max_level
+  const L = decLen(w);
+  return L <= 1 || amostras < L - 1 ? 0 : Math.floor(Math.log2(amostras / (L - 1)));
+}
+
+const sinal = {
+  el: () => $('[data-card="parametros"]'),
+  montar() {
+    const w = $("#sinal-wavelet");
+    for (const [familia, nomes] of WAVELETS) {
+      const g = document.createElement("optgroup");
+      g.label = familia;
+      for (const n of nomes) g.append(new Option(n, n));
+      w.append(g);
+    }
+    w.value = "db7";
+    const nv = $("#sinal-niveis");
+    for (let i = 1; i <= 8; i++) nv.append(new Option(String(i), String(i)));
+    nv.value = "4";
+    $("#faixas").addEventListener("change", (ev) => {
+      if (ev.target.name === "camadas") guardar("parametros:camadas", $$('#faixas [name="camadas"]').filter((c) => c.checked).map((c) => Number(c.value)));
+      if (ev.target.name === "aproximacao") guardar("parametros:aproximacao", ev.target.checked);
+      sinal.atualizar();
+    });
+    this.el().addEventListener("change", (ev) => { if (ev.target.closest("#faixas")) return; sinal.atualizar(true); });
+    $("#sinalPadrao").addEventListener("click", () => sinal.restaurar());
+    $("#sinalDisciplina").addEventListener("click", () => {
+      if (!(estado?.opcoes?.csvs || []).includes(GESTOS_CSV)) {
+        mensagem(this.el(), `Falta ${GESTOS_CSV}: baixe em Manutenção → Dados → Gestos da disciplina.`);
+        return;
+      }
+      mensagem(this.el(), "");
+      sinal.restaurar(SINAL_DISCIPLINA);
+    });
+    $("#usarTaxa").addEventListener("click", (ev) => {
+      $("#sinal-fs").value = ev.currentTarget.dataset.taxa;
+      guardar("parametros:fs", $("#sinal-fs").value);
+      sinal.atualizar(true);
+    });
+  },
+  restaurar(valores = SINAL_PADRAO) {
+    for (const [k, v] of Object.entries(valores)) {
+      guardar("parametros:" + k, v);
+      if (k === "camadas" || k === "aproximacao") continue;
+      for (const c of $$(`[name="${k}"]`, this.el())) {
+        if (c.type === "radio") c.checked = c.value === v;
+        else c.value = v;
+      }
+    }
+    sinal.atualizar(true);
+  },
+  faixas() {  // D1..Dn and An, with their band in Hz; keeps the ticks across level changes
+    const n = Number($("#sinal-niveis").value), nyq = fsAtual() / 2;
+    $("#faixas").setAttribute("aria-label", `Faixas da decomposição, em Hz a ${fsAtual()} amostras/s`);
+    const marcadas = new Set(lembrar("parametros:camadas") ?? SINAL_PADRAO.camadas);
+    const chip = (nome, valor, rotulo, faixa, marcado) => {
+      const l = document.createElement("label");
+      l.className = "faixa";
+      const i = Object.assign(document.createElement("input"), { type: "checkbox", name: nome, value: valor, checked: marcado });
+      l.append(i, Object.assign(document.createElement("b"), { textContent: rotulo }), Object.assign(document.createElement("small"), { textContent: faixa }));
+      return l;
+    };
+    const itens = [];
+    for (let k = 1; k <= n; k++) itens.push(chip("camadas", k, `D${k}`, `${hz(nyq / 2 ** k)}–${hz(nyq / 2 ** (k - 1))} Hz`, marcadas.has(k)));
+    itens.push(chip("aproximacao", "1", `A${n}`, `0–${hz(nyq / 2 ** n)} Hz`, lembrar("parametros:aproximacao") ?? false));
+    $("#faixas").replaceChildren(...itens);
+  },
+  atualizar(refazer = false) {
+    const el = this.el();
+    const p = params(el);
+    const n = Number(p.niveis);
+    if (refazer || $$("#faixas .faixa").length !== n + 1) this.faixas();
+    const legado = p.modo !== "faixas";
+    const caixa = $("#faixas");
+    caixa.setAttribute("aria-disabled", String(legado));
+    $$("input", caixa).forEach((i) => (i.disabled = legado));
+    $$("[data-nivel]", el).forEach((i) => (i.textContent = n));
+
+    // filters: show the fields of the chosen mode, and where the thesis ones act at this rate
+    const fs = Number(p.fs) || 200;
+    for (const b of $$("[data-so-filtros]", el)) b.hidden = b.dataset.soFiltros !== p.filtros;
+    const hpM = Math.round((MESTRADO_HP_HZ * fs) / 200), rfM = Math.round((MESTRADO_RF_HZ * fs) / 200);
+    $("#textoFiltrosMestrado").textContent = fs === 200
+      ? "Passa-altas em ~14 Hz e rejeita-faixa em 60 Hz, projetados para 200 Hz."
+      : `Projetados para 200 Hz: a ${hz(fs)} Hz o passa-altas corta em ~${hpM} Hz e o rejeita-faixa vai para ~${rfM} Hz.`;
+    const notaF = $("#notaFiltros");
+    let avisoF = "";
+    if (p.filtros === "mestrado" && fs !== 200 && Math.abs(rfM - 60) > 5) {
+      avisoF = `Com os filtros do mestrado a ${hz(fs)} Hz, a rede de 60 Hz passa sem filtro e o corte baixo sobe para ~${hpM} Hz. Para cortar onde se pretende, use "Projetados para a frequência".`;
+    } else if (p.filtros === "projetados" && Number(p.passa_altas_hz) >= fs / 2) {
+      avisoF = `O passa-altas precisa ficar abaixo de ${hz(fs / 2)} Hz (metade da frequência de amostragem).`;
+    }
+    notaF.textContent = avisoF;
+    notaF.hidden = !avisoF;
+
+    // the recording's own rate, from its time column: a hint against training at the wrong one
+    const info = estado?.opcoes?.gravacoes?.[p.csv];
+    const dica = $("#dicaTaxa");
+    dica.hidden = !(info?.taxa && Math.abs(info.taxa - fs) / fs > 0.2);
+    if (!dica.hidden) {
+      $("span", dica).textContent = `A coluna time de ${p.csv} indica ~${hz(info.taxa)} amostras/s.`;
+      $("#usarTaxa").textContent = `Usar ${hz(info.taxa)} Hz`;
+      $("#usarTaxa").dataset.taxa = info.taxa;
+    }
+
+    const amostras = Math.floor(Number(p.janela) / (1000 / fs));
+    const util = nivelUtil(amostras, p.wavelet);
+    const nota = $("#notaNivel");
+    nota.hidden = !(amostras > 0 && n > util);
+    nota.textContent = `${p.wavelet} em janelas de ${amostras} amostras tem ${util} ${util === 1 ? "nível útil" : "níveis úteis"}; ` +
+      `com ${n}, os níveis mais profundos são dominados por efeitos de borda. O mestrado usava db7 com 4.`;
+
+    const faixas = [...(p.camadas || []).map((k) => `D${k}`), ...(p.aproximacao ? [`A${n}`] : [])];
+    const modo = legado ? "como no mestrado" : faixas.length ? "faixas " + faixas.join("+") : "nenhuma faixa marcada";
+    const filtros = p.filtros === "projetados"
+      ? `filtros ${hz(Number(p.passa_altas_hz))} Hz + ${p.rede_hz === "0" ? "sem rede" : `rede ${p.rede_hz} Hz`}`
+      : p.filtros === "arquivos" ? "filtros de arquivo" : "filtros do mestrado";
+    $("#resumoSinal").textContent = [
+      p.csv || "(sem gravação)", ...(info?.canais ? [`${info.canais} canais`] : []), `${hz(fs)} Hz`, filtros,
+      p.feature.toUpperCase(), `divisão ${p.divisao}`, ...(p.teste !== "30" ? [`teste ${p.teste}%`] : []),
+      `${p.wavelet}, ${n} ${n === 1 ? "nível" : "níveis"}`, modo, `janela ${p.janela} ms`,
+    ].join(" · ");
+  },
+};
+const PADRAO_LISTA = { csvs: "6_10_20220.csv", modelos: "knn_6-10-20220_mav_temporal_latest.joblib", videos: VIDEO_ESPELHADO };
+
+function preencherListas() {
+  const opc = estado.opcoes;
+  for (const sel of $$("select[data-lista]")) {
+    const lista = sel.dataset.lista;
+    let itens = opc[lista] || [];
+    if (lista === "videos" && !estado.ambiente.wsl) itens = [...itens, "webcam"];
+    if (lista === "filtros") itens = ["", ...itens];  // "" = no filter at this stage
+    const chave = sel.closest("[data-card]").dataset.card + ":" + sel.name;
+    const antes = sel.value || lembrar(chave);
+    const assinatura = itens.join("|");
+    if (sel.dataset.assinatura === assinatura) continue;
+    sel.dataset.assinatura = assinatura;
+    sel.replaceChildren(...itens.map((v) => {
+      const o = document.createElement("option");
+      o.value = v;
+      o.textContent = lista === "modelos" ? rotuloModelo(v) : v === "webcam" ? "Webcam (/dev/video0)" : v === "" ? "(nenhum)" : v;
+      return o;
+    }));
+    if (!itens.length) { const o = document.createElement("option"); o.textContent = "(nenhum ainda)"; o.value = ""; sel.append(o); }
+    if (lista === "filtros") { sel.value = itens.includes(antes) ? antes : ""; continue; }  // default: none
+    const alvo = [antes, PADRAO_LISTA[lista], itens[itens.length - 1]].find((v) => v && itens.includes(v));
+    if (alvo) sel.value = alvo;
+  }
+}
+
+function prepararCampos() {
+  for (const sel of $$('select[name="canal_a"], select[name="canal_b"]')) {
+    for (let i = 1; i <= 8; i++) { const o = document.createElement("option"); o.value = o.textContent = i; sel.append(o); }
+    sel.value = sel.name === "canal_a" ? "1" : "2";
+  }
+  for (const card of $$("[data-card]")) {
+    const nome = card.dataset.card;
+    for (const el of $$("[name]", card)) {
+      if (el.dataset.lista) { el.addEventListener("change", () => guardar(nome + ":" + el.name, el.value)); continue; }
+      const v = lembrar(nome + ":" + el.name);
+      if (el.type === "radio") {
+        if (v !== undefined) el.checked = el.value === v;
+        el.addEventListener("change", () => el.checked && guardar(nome + ":" + el.name, el.value));
+        continue;
+      }
+      if (v !== undefined) { if (el.type === "checkbox") el.checked = v; else el.value = v; }
+      el.addEventListener("change", () => guardar(nome + ":" + el.name, el.type === "checkbox" ? el.checked : el.value));
+    }
+    const fonte = $('[name="fonte"]', card);
+    const soGravacao = () => $$("[data-so-gravacao]", card).forEach((el) => (el.hidden = fonte.value !== "gravacao"));
+    if (fonte) { fonte.addEventListener("change", soGravacao); soGravacao(); }
+    const video = $('[name="video"]', card), espelhar = $('[name="espelhar"]', card);
+    if (video && espelhar) video.addEventListener("change", () => { espelhar.checked = video.value !== VIDEO_ESPELHADO; guardar(nome + ":espelhar", espelhar.checked); });
+  }
+}
+
+// ------------------------------------------------------------ rendering
+function tarefaDe(acoes) {  // most recent task among these actions
+  return (estado.tarefas || []).filter((t) => acoes.includes(t.acao)).sort((a, b) => b.id - a.id)[0];
+}
+
+function render() {
+  const e = estado, rodando = e.rodando || [];
+  const servicos = new Set(rodando.map((c) => c.servico));
+  const principais = PRINCIPAIS.filter((s) => servicos.has(s));
+  const dockerOk = e.docker.ok;
+  // a server older than this page ignores options it does not know: only stopping is safe
+  const velho = !("desatualizado" in e) || e.desatualizado;
+  $("#avisoVersao").hidden = !velho;
+  const pode = dockerOk && !velho;
+
+  const d = $("#docker");
+  d.dataset.s = dockerOk ? "ok" : "off";
+  $("#dockerTxt").textContent = dockerOk
+    ? `Docker pronto · ${e.docker.desktop ? "Desktop " : ""}${e.docker.versao}`
+    : "Docker fechado";
+  $("#abrirDocker").hidden = dockerOk || !e.ambiente.wsl;
+
+  // the chain strip: summary before detail
+  for (const el of $$("[data-estacao]")) {
+    const on = ESTACOES[el.dataset.estacao](servicos);
+    el.classList.toggle("on", on);
+    $(".lamp", el).classList.toggle("on", on);
+  }
+  // web-portas is plumbing (null): left out of the summary
+  const nomes = rodando.map((c) => (c.servico in NOME_CURTO ? NOME_CURTO[c.servico] : c.servico)).filter(Boolean);
+  $("#resumo").innerHTML = "";
+  $("#resumo").append(
+    !dockerOk ? "Abra o Docker Desktop para começar."
+      : nomes.length ? Object.assign(document.createElement("span"), { innerHTML: "Rodando: <strong></strong>" })
+      : "Nada rodando. Escolha uma simulação abaixo.",
+  );
+  if (nomes.length) $("#resumo strong").textContent = [...new Set(nomes)].join(" + ");
+
+  for (const el of $$("[data-precisa-janela]")) el.hidden = !e.ambiente.janela;
+
+  // simulation cards
+  for (const [card, s] of Object.entries(SERVICOS)) {
+    const el = $(`[data-card="${card}"]`);
+    const ativo = servicos.has(s.servico);
+    const t = tarefaDe([card]);
+    const iniciando = !ativo && t && t.rodando;
+    const outro = principais.find((x) => x !== s.servico);
+    el.classList.toggle("ativo", ativo);
+    const falhou = !ativo && !iniciando && t && t.codigo;
+    marcar($("[data-badge]", el), ativo ? "rodando" : iniciando ? "iniciando" : falhou ? "falhou" : "", ativo ? "rodando" : iniciando ? "iniciando…" : falhou ? "falhou" : "parado");
+    const ini = $("[data-iniciar]", el);
+    ini.hidden = ativo;
+    ini.disabled = !pode || iniciando || Boolean(outro);
+    $("[data-parar]", el).hidden = !ativo;
+    const seguindo = tarefaDe([card, s.ver]);
+    $("[data-ver]", el).hidden = !ativo || Boolean(seguindo && seguindo.rodando);
+    const abrir = $("[data-abrir]", el);
+    abrir.hidden = !(ativo && servicos.has("web"));
+    abrir.setAttribute("aria-disabled", String(!e.pagina_braco));
+    $("[data-rotulo]", abrir).textContent = e.pagina_braco ? abrir.dataset.rotulo : "Preparando a página…";
+    $("[data-dica]", el).textContent = !ativo && outro ? `Pare ${NOME_SERVICO[outro]} antes: só uma simulação de cada vez.`
+      : iniciando ? "Subindo os containers, alguns segundos…" : "";
+  }
+
+  // one-off tasks
+  for (const card of TAREFAS) {
+    const el = $(`[data-card="${card}"]`);
+    const t = tarefaDe([card]);
+    const ocupado = t && t.rodando;
+    const badge = $("[data-badge]", el);
+    badge.hidden = !t;
+    if (t) marcar(badge, ocupado ? "rodando" : t.codigo === 0 ? "ok" : "falhou", ocupado ? (card === "captura" ? "gravando" : "rodando") : t.codigo === 0 ? `concluído às ${hora(t.fim)}` : `falhou · código ${t.codigo}`);
+    const ini = $("[data-iniciar]", el);
+    ini.hidden = card === "captura" && ocupado;
+    const outro = card === "captura" && principais.find((x) => x !== "captura");
+    ini.disabled = !pode || ocupado || Boolean(outro);
+    const parar = $("[data-parar]", el);
+    if (parar) parar.hidden = !ocupado;
+    const dica = $("[data-dica]", el);
+    if (dica) dica.textContent = outro ? `Pare ${NOME_SERVICO[outro]} antes: os dois publicam sEMG nos mesmos tópicos.` : "";
+  }
+  const analises = e.opcoes.analises || [];
+  for (const b of $$("[data-figuras]")) b.disabled = b.dataset.pasta ? !analises.includes(b.dataset.pasta) : !analises.length;
+
+  for (const b of $$("[data-acao]")) {
+    const t = tarefaDe([b.dataset.acao]);
+    const precisa = !["verificar", "dados", "dados_gestos", "abrir_docker"].includes(b.dataset.acao);
+    const livre = b.id === "pararTudo" || b.dataset.acao === "verificar" || b.dataset.acao === "abrir_docker";
+    b.disabled = (t && t.rodando) || (precisa && !dockerOk) || (!livre && velho) || (b.id === "pararTudo" && !rodando.length);
+  }
+  if (!rodando.length) desarmar();
+
+  renderTarefas();
+}
+
+function renderTarefas() {
+  const sel = $("#tarefaSel");
+  const tarefas = [...(estado.tarefas || [])].sort((a, b) => b.id - a.id);
+  if (!tarefas.length) return;
+  const assinatura = tarefas.map((t) => `${t.id}${t.rodando}${t.codigo}`).join("|");
+  if (sel.dataset.assinatura !== assinatura) {
+    sel.dataset.assinatura = assinatura;
+    sel.replaceChildren(...tarefas.map((t) => {
+      const o = document.createElement("option");
+      o.value = t.id;
+      const icone = t.rodando ? "●" : t.codigo === 0 ? "✓" : "✗";
+      o.textContent = `${icone}  ${t.titulo} · ${hora(t.inicio)}`;
+      return o;
+    }));
+    if (selecionada == null) selecionar(tarefas[0].id);
+    sel.value = selecionada;
+  }
+  const t = tarefas.find((x) => x.id === selecionada);
+  if (!t) return;
+  const segue = SEGUE_LOGS.includes(t.acao);
+  $("#pararTarefa").hidden = !t.rodando || segue;
+  const st = $("#saidaStatus");
+  st.replaceChildren();
+  if (t.rodando) {
+    st.append(segue ? "Acompanhando os registros. Para parar a simulação, use Parar no cartão." : "Rodando…");
+  } else {
+    const chip = Object.assign(document.createElement("span"), { className: "codigo " + (t.codigo === 0 ? "ok" : "erro"), textContent: `código ${t.codigo}` });
+    st.append(chip, t.codigo === 0 ? ` terminou bem às ${hora(t.fim)}` : ` terminou às ${hora(t.fim)}; o motivo costuma estar nas últimas linhas`);
+  }
+  if (t.rodando && !lendo) lerSaida();
+}
+
+// ------------------------------------------------------------ output panel
+function selecionar(id) {
+  selecionada = Number(id);
+  desde = 0;
+  $("#log").replaceChildren();
+  $("#tarefaSel").value = selecionada;
+  lerSaida();
+}
+
+// One reading loop at a time; it follows `selecionada` if the user switches.
+async function lerSaida() {
+  if (selecionada == null || lendo) return;
+  lendo = true;
+  try {
+    for (;;) {
+      const id = selecionada;
+      const r = await fetch(`/api/saida?tarefa=${id}&desde=${desde}`, { cache: "no-store" });
+      if (id !== selecionada) continue;
+      if (!r.ok) break;
+      const s = await r.json();
+      if (id !== selecionada) continue;
+      desde = s.proximo;
+      const log = $("#log");
+      const frag = document.createDocumentFragment();
+      for (const linha of s.linhas) {
+        const span = document.createElement("span");
+        if (linha.startsWith("$ ")) span.className = "cmd";
+        span.textContent = linha + "\n";
+        frag.append(span);
+      }
+      log.append(frag);
+      while (log.childNodes.length > 5000) log.firstChild.remove();
+      if ($("#rolar").checked) log.scrollTop = log.scrollHeight;
+      if (!s.rodando && id === selecionada) break;
+      await new Promise((ok) => setTimeout(ok, 700));
+    }
+  } catch {
+    // the next status poll reports a panel that stopped answering
+  } finally {
+    lendo = false;
+  }
+}
+
+// ------------------------------------------------------------ "Parar tudo" asks once, in place
+let armado = null;
+function desarmar() {
+  const b = $("#pararTudo");
+  clearTimeout(armado);
+  armado = null;
+  b.classList.remove("confirmar");
+  $("span", b).textContent = "Parar tudo";
+}
+$("#pararTudo").addEventListener("click", () => {
+  const b = $("#pararTudo");
+  if (!armado) {
+    b.classList.add("confirmar");
+    $("span", b).textContent = "Confirmar: parar tudo";
+    armado = setTimeout(desarmar, 4000);
+    return;
+  }
+  desarmar();
+  executar("parar_tudo", {}, null);
+});
+
+// ------------------------------------------------------------ wiring
+async function atualizar() {
+  try {
+    const r = await fetch("/api/estado", { cache: "no-store" });
+    estado = await r.json();
+    preencherListas();
+    sinal.atualizar();
+    render();
+    abrirUltimaAnalise();
+  } catch {
+    $("#docker").dataset.s = "off";
+    $("#dockerTxt").textContent = "painel sem resposta";
+    $("#resumo").textContent = "O painel não responde. A janela do painel foi fechada? Abra de novo o Painel do projeto.";
+  }
+}
+
+// After an analysis ends well, "Figuras" points at the folder it wrote.
+let analiseVista = null;
+function abrirUltimaAnalise() {
+  const t = tarefaDe(["analise"]);
+  if (!t || t.rodando || t.codigo !== 0 || t.id === analiseVista) return;
+  analiseVista = t.id;
+  const pasta = t.titulo.split("→ ")[1];
+  const sel = $('[data-card="analise"] [name="pasta"]');
+  if (pasta && [...sel.options].some((o) => o.value === pasta)) sel.value = pasta;
+}
+
+sinal.montar();
+prepararCampos();
+sinal.atualizar(true);
+for (const [card, s] of Object.entries(SERVICOS)) {
+  const el = $(`[data-card="${card}"]`);
+  const abrir = $("[data-abrir]", el);
+  abrir.dataset.rotulo = $("[data-rotulo]", abrir).textContent;
+  $("[data-iniciar]", el).addEventListener("click", () => executar(card, params(el), el));
+  $("[data-parar]", el).addEventListener("click", () => executar(s.parar, {}, el));
+  $("[data-ver]", el).addEventListener("click", () => executar(s.ver, {}, el));
+}
+for (const card of TAREFAS) {
+  const el = $(`[data-card="${card}"]`);
+  $("[data-iniciar]", el).addEventListener("click", () => executar(card, paramsDe(card), el));
+  const parar = $("[data-parar]", el);
+  if (parar) parar.addEventListener("click", () => { const t = tarefaDe([card]); if (t) post("/api/parar_tarefa", { tarefa: t.id }).then(atualizar); });
+}
+for (const b of $$("[data-figuras]")) {  // a fixed folder (data-pasta) or the one chosen in the card
+  b.addEventListener("click", () => {
+    const el = b.closest("[data-card]");
+    executar("abrir_figuras", { pasta: b.dataset.pasta || $('[name="pasta"]', el).value }, el);
+  });
+}
+for (const b of $$("[data-acao]")) {
+  if (b.id === "pararTudo") continue;  // it confirms first, above
+  b.addEventListener("click", () => executar(b.dataset.acao, {}, b.closest("[data-card]")));
+}
+$("#tarefaSel").addEventListener("change", (ev) => ev.target.value && selecionar(ev.target.value));
+$("#pararTarefa").addEventListener("click", () => post("/api/parar_tarefa", { tarefa: selecionada }).then(atualizar));
+
+atualizar();
+setInterval(atualizar, 2000);
+</script>
+</body>
+</html>

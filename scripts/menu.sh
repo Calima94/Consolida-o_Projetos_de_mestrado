@@ -114,35 +114,111 @@ run() {
   echo "  (terminou com código $rc)"
 }
 
+# The rate, filter, window and wavelet fields of the thesis training screen,
+# behind one question so that Enter keeps the thesis setup. Fills SIGNAL_ARGS
+# with the options that differ from it (train_legacy/analyze_legacy --help),
+# in the same order as scripts/painel.py. The channels come from the file.
+ask_signal() {
+  SIGNAL_ARGS=()
+  local adv fs filters hp mains fhp fbs janela wavelet levels mode layers approx
+  ask adv "ajustar frequência, filtros, janela e wavelet? (s/N)" "n"
+  case "$adv" in s | S) ;; *) return ;; esac
+  ask fs "frequência de amostragem (Hz)" "200"
+  echo "  filtros: 'mestrado' usa os coeficientes do mestrado (feitos para 200 Hz);"
+  echo "           'projetados' calcula para a frequência acima; 'arquivos' lê de data/filtros/"
+  choose filters "filtros:" "mestrado" mestrado projetados arquivos
+  [ "$fs" = 200 ] || SIGNAL_ARGS+=(--fs "$fs")
+  case "$filters" in
+    projetados)
+      ask hp "passa-altas (Hz)" "20"
+      choose mains "rede elétrica (Hz; 0 = sem rejeita-faixa):" "60" 60 50 0
+      SIGNAL_ARGS+=(--filters design --highpass-hz "$hp" --mains-hz "$mains")
+      ;;
+    arquivos)
+      ls data/filtros 2>/dev/null | sed 's/^/    /'
+      ask fhp "arquivo do passa-altas em data/filtros (Enter = nenhum)" ""
+      ask fbs "arquivo do rejeita-faixa em data/filtros (Enter = nenhum)" ""
+      SIGNAL_ARGS+=(--filters files)
+      [ -z "$fhp" ] || SIGNAL_ARGS+=(--highpass-file "/data/filtros/$fhp")
+      [ -z "$fbs" ] || SIGNAL_ARGS+=(--bandstop-file "/data/filtros/$fbs")
+      ;;
+  esac
+  ask janela "janela em ms" "250"
+  ask wavelet "wavelet-mãe (db7, sym4, coif2, haar...)" "db7"
+  choose levels "níveis da decomposição:" "4" 1 2 3 4 5 6
+  echo "  camadas: 'mestrado' repete o código original (a escolha de camadas não faz efeito);"
+  echo "           'faixas' mantém só as camadas escolhidas (1 = a mais fina, fs/4 a fs/2)"
+  choose mode "modo:" "mestrado" mestrado faixas
+  [ "$janela" = 250 ] || SIGNAL_ARGS+=(--window-ms "$janela")
+  if [ "$wavelet" != db7 ] || [ "$levels" != 4 ]; then
+    SIGNAL_ARGS+=(--wavelet "$wavelet" --levels "$levels")
+  fi
+  if [ "$mode" = faixas ]; then
+    ask layers "camadas a manter" "1 2"
+    ask approx "manter também a aproximação? (s/N)" "n"
+    # shellcheck disable=SC2206  # the layers are words on purpose
+    SIGNAL_ARGS+=(--wavelet-mode bands --layers $layers)
+    case "$approx" in s | S) SIGNAL_ARGS+=(--approx) ;; esac
+  fi
+}
+
+# Share of the windows kept for the hold-out test, in percent. Fills TEST_ARGS
+# only when it is not the thesis's 30 % (the course project used 20 %).
+ask_test_size() {
+  local pct
+  ask pct "parte de teste (%)" "30"
+  TEST_ARGS=()
+  [ "$pct" = 30 ] || TEST_ARGS=(--test-size "$(awk -v p="$pct" 'BEGIN { print p / 100 }')")
+}
+
 opt_train() {
   local csv feature split seed
   pick_csv csv
   choose feature "feature:" "mav" mav rms
   choose split "divisão treino/teste:" "temporal" temporal legacy
   ask seed "semente" "42"
+  ask_test_size
+  ask_signal
   run docker compose "${BASE[@]}" run --rm train \
     ros2 run mestrado_emg train_legacy "/data/$csv" --out /models \
-    --feature "$feature" --split "$split" --seed "$seed"
-  echo "  Modelos em models/, com o nome <classificador>_<arquivo>_${feature}_${split}_latest.joblib"
+    --feature "$feature" --split "$split" --seed "$seed" "${TEST_ARGS[@]}" "${SIGNAL_ARGS[@]}"
+  echo "  Modelos em models/, com o nome <classificador>_<arquivo>_${feature}_${split}[_<ajustes>]_latest.joblib"
 }
 
 opt_analyze() {
-  local csv feature split seed folds pair stem
+  local csv feature split seed folds pair
   pick_csv csv
   choose feature "feature:" "mav" mav rms
   choose split "divisão treino/teste:" "temporal" temporal legacy
   ask seed "semente" "42"
+  ask_test_size
   ask folds "partições da validação cruzada" "5"
   ask pair "dois canais para o gráfico de dispersão" "1 2"
+  ask_signal
   # shellcheck disable=SC2086  # the pair is two words on purpose
   run docker compose "${BASE[@]}" run --rm train \
     ros2 run mestrado_emg analyze_legacy "/data/$csv" --out /models/analise \
-    --feature "$feature" --split "$split" --seed "$seed" --cv "$folds" --pair $pair
-  stem="$(echo "${csv%.csv}" | sed -E 's/[^A-Za-z0-9]+/-/g; s/^-+//; s/-+$//')"
-  echo "  Figuras e resumo em models/analise/${stem}_${feature}_${split}/"
+    --feature "$feature" --split "$split" --seed "$seed" "${TEST_ARGS[@]}" --cv "$folds" \
+    --pair $pair "${SIGNAL_ARGS[@]}"
+  echo "  Figuras e resumo em models/analise/ (a última linha da análise diz a pasta)"
   if is_wsl; then
     echo "  Para abrir no Windows: cd models/analise && explorer.exe ."
   fi
+}
+
+# The course project's LSTM again, split three ways (mestrado_emg/lstm_gestos.py).
+# Its own image with PyTorch: the build is a cache hit after the first time.
+opt_lstm() {
+  local epocas sementes
+  local -a extra=()
+  ask epocas "épocas" "200"
+  ask sementes "sementes (repetições)" "3"
+  [ "$epocas" = 200 ] || extra+=(--epocas "$epocas")
+  [ "$sementes" = 3 ] || extra+=(--repeticoes "$sementes")
+  run docker compose "${BASE[@]}" --profile lstm build lstm
+  run docker compose "${BASE[@]}" --profile lstm run --rm lstm \
+    python3 -m mestrado_emg.lstm_gestos /data/gestos_1khz.csv --out /models/analise "${extra[@]}"
+  echo "  Resumo e figuras em models/analise/gestos-1khz_lstm/"
 }
 
 opt_arm() {
@@ -247,6 +323,8 @@ menu() {
    8) Modo espelho: o braço copia o vídeo/câmera
    9) Captura de dados (sEMG + ângulo do cotovelo)
   10) Encerrar tudo que estiver rodando
+  11) Baixar os dados de gestos da disciplina (1 kHz, 8 participantes)
+  12) Refazer a LSTM da disciplina (divisão por participante)
    0) Sair
 EOF
 }
@@ -266,6 +344,8 @@ while true; do
     8) opt_mirror ;;
     9) opt_capture ;;
     10) run scripts/stop.sh ;;
+    11) run scripts/fetch_gesture_data.sh ;;
+    12) opt_lstm ;;
     0 | q | sair) exit 0 ;;
     "") ;;
     *) echo "  opção inválida: $choice" ;;
