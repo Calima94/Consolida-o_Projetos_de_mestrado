@@ -38,4 +38,5 @@ services:
   sim: *wslg
   captura: *wslg
   espelho: *wslg
+  braco: *wslg
   shell: *wslg

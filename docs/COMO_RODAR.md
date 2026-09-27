@@ -5,11 +5,18 @@ roda dentro do Docker: você não instala ROS nem Gazebo no seu sistema.
 
 > **O que foi testado e o que não foi.** Todos os comandos abaixo foram
 > executados num Linux sem monitor (Gazebo sem janela e janelas num display
-> virtual). No **Windows 11 + WSL2 + Docker Desktop** foi testado o
-> [passo 4](#4-ver-o-braço-no-gazebo): a janela do Gazebo abre e o braço se
-> move (Windows 11 build 26200, WSL 2.7.14.0, WSLg 1.0.73.2, Ubuntu 26.04.1,
-> Docker Desktop 4.92.0). Os passos 5 a 7 no Windows, o Linux com monitor de
-> verdade e a webcam **ainda não** foram testados. Se algo falhar, a seção
+> virtual). No **Windows 11 + WSL2 + Docker Desktop** (Windows 11 build 26200,
+> WSL 2.7.14.0, WSLg 1.0.73.2, Ubuntu 26.04.1, Docker Desktop 4.92.0) foram
+> testados todos os passos:
+> - o [passo 4](#4-ver-o-braço-no-gazebo): a janela do Gazebo abre e o braço
+>   se move;
+> - o [passo 5](#5-pilotar-o-braço-pelo-navegador): a interface web, no
+>   navegador do Windows;
+> - os passos 6 a 8, pelo menu, com o vídeo do mestrado e sEMG reproduzido. No
+>   modo espelho, as janelas da câmera e do Gazebo abrem juntas.
+>
+> **Ainda não** foram testados o Linux com monitor de verdade, a interface web
+> no Linux e no celular, a webcam e a faixa Myo. Se algo falhar, a seção
 > [Se algo der errado](#se-algo-der-errado) cobre os casos mais prováveis.
 
 Escolha o seu sistema:
@@ -128,8 +135,9 @@ Arquivo de janela para o Linux: `docker/compose.gui.yaml`.
 
 ## Rodando
 
-**Atalho: o menu.** Depois do passo 1, `scripts/menu.sh` faz os passos 2 a 8
-por você, no lugar das telas do mestrado. Cada opção pergunta os campos (Enter
+**Atalho: o menu.** Depois do passo 1, `scripts/menu.sh` faz os passos 2 a 9
+por você, no lugar das telas do mestrado; só a interface web (passo 5) ainda
+não está nele. Cada opção pergunta os campos (Enter
 aceita o padrão entre colchetes), mostra o comando e pergunta se executa. Ele
 descobre sozinho o arquivo de janela. Os passos abaixo são os mesmos comandos,
 para rodar à mão.
@@ -182,8 +190,9 @@ da ferramenta de captura, todos de commits fixos e com SHA-256 conferido.
 docker compose -f docker/compose.yaml build
 ```
 
-Baixa uns 2 GB (ROS 2 Lyrical + Gazebo Jetty) e leva alguns minutos. Só
-precisa repetir quando o código mudar.
+Baixa uns 2 GB (ROS 2 Lyrical + Gazebo Jetty), compila o `rosbridge` da
+interface web (menos de 1 min; precisa de acesso ao GitHub) e leva alguns
+minutos. Só precisa repetir quando o código mudar.
 
 ### 4. Ver o braço no Gazebo
 
@@ -206,7 +215,56 @@ kp = 1). O ombro é `/arm/shoulder/cmd_pos`. Para voltar, publique `0.0`.
 
 Encerre com **Ctrl+C** no primeiro terminal.
 
-### 5. O sistema do mestrado completo: sEMG → classificador → braço
+### 5. Pilotar o braço pelo navegador
+
+Uma página no lugar do `ros2 topic pub`: setas e deslizadores para ombro,
+cotovelo e garra, o braço desenhado de lado, o comando e a posição real lado a
+lado, e uma parada de emergência. O Gazebo roda sem janela: quem desenha o
+braço é o navegador.
+
+```bash
+# Windows (Docker Desktop):
+docker compose -f docker/compose.yaml -f docker/compose.desktop.yaml up braco web
+# Linux:
+docker compose -f docker/compose.yaml up braco web
+```
+
+Abra **http://localhost:8080** (no Windows, no navegador do próprio Windows).
+O ponto verde e "conectado" no topo dizem que a página alcançou o ROS e está
+recebendo o estado das juntas.
+
+- **Setas:** um clique move 5° (0,5 cm na garra); segurando, repete. O
+  deslizador vai direto ao valor.
+- **Comando × real:** o braço cheio é o que o Gazebo mede (`/joint_states`);
+  o contorno tracejado azul é o alvo que o controlador está seguindo
+  (`/arm/joint_targets`). A diferença some em ~3 s, com a dinâmica do mestrado.
+  Um comando vindo de fora, como o `ros2 topic pub` do passo 4, também aparece.
+- **Garra:** os dedos abrem para os lados, fora do plano da vista lateral, por
+  isso a garra aparece também de frente, embaixo. A abertura é a distância
+  entre as faces internas dos dedos: de 6 a 22 cm.
+- **PARAR** (ou a tecla **Esc**): o controlador zera a velocidade das juntas e
+  ignora qualquer comando (da página, do terminal ou do classificador) até você
+  clicar em **Liberar**. Ao liberar, o braço fica onde está; não retoma o
+  comando de antes da parada.
+- As faixas dos deslizadores (ombro ±90°, cotovelo ±150°) evitam posições em
+  que o braço bate no pedestal ou se dobra sobre si mesmo. O modelo aceita
+  ±180°.
+
+Para ver a janela do Gazebo ao lado, acrescente `-f $JANELA` e ponha
+`GUI=true` antes do comando. Com `sim` no lugar de `braco` (passo 6), a
+página mostra o classificador comandando o braço, e PARAR também o interrompe.
+
+Por enquanto a página só abre neste computador: no Windows as portas são
+publicadas em `127.0.0.1`, porque o `rosbridge` não tem senha. O celular é a
+próxima etapa. Encerre com **Ctrl+C** ou `./scripts/stop.sh`.
+
+Por que o Windows precisa do `compose.desktop.yaml`: no Docker Desktop, a rede
+`host` dos containers fica dentro da máquina virtual do Docker e não é
+alcançável nem do Windows nem do Ubuntu. O arquivo acrescenta um repasse de
+portas (`web-portas`); os detalhes estão no cabeçalho dele. No Linux, nada
+disso é preciso.
+
+### 6. O sistema do mestrado completo: sEMG → classificador → braço
 
 Sem Myo, o sEMG vem das gravações do mestrado, tocadas em tempo real.
 
@@ -249,7 +307,7 @@ do gráfico de dispersão). Se o comando não existir, a imagem é de antes dest
 versão: reconstrua (passo 3). O que esses resultados querem dizer está em
 [`ANALISE_RESULTADOS.md`](ANALISE_RESULTADOS.md).
 
-### 6. Modo espelho: o braço do Gazebo copia o seu
+### 7. Modo espelho: o braço do Gazebo copia o seu
 
 Não precisa de sEMG. Com o **vídeo gravado no mestrado**:
 
@@ -280,7 +338,7 @@ seguindo o do vídeo. `FLIP=false` porque esse vídeo já foi salvo espelhado.
 
 Se ele marcar o braço errado, troque `FLIP=false`/`true` ou use `ARM=left`.
 
-### 7. Captura de dados (a ferramenta do `Capture_EMG_Data`)
+### 8. Captura de dados (a ferramenta do `Capture_EMG_Data`)
 
 Precisa de uma fonte de sEMG. Para ver o fluxo funcionando sem hardware (vídeo
 do mestrado + sEMG reproduzido):
@@ -304,7 +362,7 @@ Com o Myo (`EMG=myo` é o padrão), acrescente `-f docker/compose.myo.yaml`. No
 Windows, o dongle precisa antes ser ligado ao WSL com
 [usbipd](https://learn.microsoft.com/windows/wsl/connect-usb).
 
-### 8. Encerrar
+### 9. Encerrar
 
 Qualquer uma destas formas encerra tudo, Gazebo inclusive:
 
@@ -336,3 +394,8 @@ rodando (veja a tabela abaixo).
 | Espelho marca o braço errado | Troque `FLIP` (`true`/`false`) ou `ARM=left` |
 | Captura não termina | Alguma categoria não recebe amostras: aumente `TOLERANCE`, reduza `SAMPLES`, ou encerre com Ctrl+C (o que foi gravado é salvo) |
 | `Myo dongle not found!` | Confira o dispositivo (`ls /dev/ttyACM*`) e passe `MYO_TTY=/dev/ttyACM0` com `-f docker/compose.myo.yaml` |
+| `http://localhost:8080` não abre (Windows) | Faltou `-f docker/compose.desktop.yaml`: sem ele, as portas ficam dentro da máquina virtual do Docker. Confira com `docker ps` se o `mestrado-web-portas-1` está de pé |
+| Página: "sem conexão com o rosbridge" | O serviço `web` caiu ou não subiu: veja `docker compose -f docker/compose.yaml logs web`. Se aparecer `file 'web.launch.py' was not found` ou `package 'rosbridge_server' not found`, a imagem é anterior a esta versão: reconstrua (passo 3) |
+| Página: "conectado, mas sem /joint_states" | O braço não está rodando: suba `braco` (ou `sim`) junto com `web` |
+| Página: "sem o arm_controller" | O Gazebo está de pé, mas o controlador não, ou a imagem é anterior a esta versão: reconstrua (passo 3). Sem ele, nem os comandos nem a parada têm efeito |
+| PARAR mostra "A parada NÃO foi confirmada" | O controlador não respondeu em 3 s. No simulador, pare tudo com `./scripts/stop.sh`. Com braço físico, corte a alimentação |

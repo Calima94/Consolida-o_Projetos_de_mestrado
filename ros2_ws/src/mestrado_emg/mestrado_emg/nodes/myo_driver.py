@@ -95,7 +95,7 @@ class MyoDriverNode(Node):
         try:
             self.myo.disconnect()
         except Exception as exc:  # the dongle may already be gone
-            self.get_logger().warn(f"disconnect failed: {exc}")
+            self.get_logger().warning(f"disconnect failed: {exc}")
 
 
 def main(args: list[str] | None = None) -> None:

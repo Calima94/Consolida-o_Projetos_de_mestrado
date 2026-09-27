@@ -38,7 +38,12 @@ ok() { echo "  ok    $*"; }
 bad() { echo "  FALHA $*"; }
 
 is_wsl() {
-  [ "${CHECK_DOCKER_FORCE_WSL:-}" = 1 ] && return 0  # used by tests/test_check_docker.py
+  # Forced by tests/test_check_docker.py. 0 is needed too: inside a Docker
+  # Desktop container the kernel is WSL's, so "not WSL" cannot be detected.
+  case "${CHECK_DOCKER_FORCE_WSL:-}" in
+    1) return 0 ;;
+    0) return 1 ;;
+  esac
   [ -n "${WSL_DISTRO_NAME:-}" ] || grep -qi microsoft /proc/sys/kernel/osrelease 2>/dev/null
 }
 

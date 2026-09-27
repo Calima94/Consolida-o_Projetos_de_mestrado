@@ -69,9 +69,40 @@ RUN --mount=type=secret,id=extra_ca,required=false \
  && curl -fsSL --retry 3 "${POSE_MODEL_URL}" -o /opt/mediapipe/models/pose_landmarker_full.task \
  && echo "${POSE_MODEL_SHA256}  /opt/mediapipe/models/pose_landmarker_full.task" | sha256sum -c -
 
+# rosbridge for the browser interface (service `web`): ROS 2 over websocket +
+# JSON. Built from source against the ROS of the base image instead of
+# installed from packages.ros.org: that repository only carries the latest
+# sync, and its binaries do not load on a base that is one sync behind
+# (measured 2026-09-26: "undefined symbol:
+# has_buffer_fields_builtin_interfaces__msg__Time"). Built here, its messages
+# always match the base. Pinned by tag and commit; the Python dependencies come
+# from the Ubuntu archive, so nothing comes from packages.ros.org. Its own
+# layer, before the workspace, so workspace changes do not rebuild it.
+ARG ROSBRIDGE_TAG=4.2.1
+ARG ROSBRIDGE_COMMIT=664cc950fcf9814a800934be5b0785c7f9bc8586
+RUN --mount=type=secret,id=extra_ca,required=false \
+    if [ -f /run/secrets/extra_ca ]; then export GIT_SSL_CAINFO=/run/secrets/extra_ca; fi \
+ && mv /etc/apt/sources.list.d/ros2.sources /tmp/ros2.sources.off \
+ && apt-get update \
+ && apt-get install -y --no-install-recommends \
+        python3-tornado python3-cbor2 python3-ujson python3-pil git \
+ && rm -rf /var/lib/apt/lists/* \
+ && mv /tmp/ros2.sources.off /etc/apt/sources.list.d/ros2.sources \
+ && git clone --depth 1 --branch "${ROSBRIDGE_TAG}" \
+        https://github.com/RobotWebTools/rosbridge_suite.git /opt/rosbridge/src/rosbridge_suite \
+ && test "$(git -C /opt/rosbridge/src/rosbridge_suite rev-parse HEAD)" = "${ROSBRIDGE_COMMIT}" \
+ && cd /opt/rosbridge \
+ && source /opt/ros/${ROS_DISTRO}/setup.bash \
+ && colcon build --packages-up-to rosbridge_server --cmake-args -DBUILD_TESTING=OFF \
+        --event-handlers console_direct- \
+ && rm -rf build log src
+
+# The workspace is built on top of rosbridge, so /ws/install/setup.bash (what
+# the entrypoint sources) brings both.
 WORKDIR /ws
 COPY ros2_ws/src /ws/src
 RUN source /opt/ros/${ROS_DISTRO}/setup.bash \
+ && source /opt/rosbridge/install/setup.bash \
  && colcon build --event-handlers console_direct- \
  && rm -rf build log
 

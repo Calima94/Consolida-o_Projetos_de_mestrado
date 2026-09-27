@@ -1,0 +1,38 @@
+# Docker Desktop (Windows/macOS): makes the browser interface reachable from
+# the host. Together with compose.yaml, from the WSL Ubuntu terminal:
+#   docker compose -f docker/compose.yaml -f docker/compose.desktop.yaml up braco web
+# then open http://localhost:8080 in the Windows browser.
+#
+# Why: the ROS services run with network_mode: host so that DDS discovery works
+# between containers. On Docker Desktop "host" is the Docker VM, not Windows: a
+# port opened there answers neither Windows nor the WSL Ubuntu (measured
+# 2026-09-26 with an http.server in host mode: no answer from either). Published
+# ports do reach both, but only from bridge networks. So `web-portas`, on a
+# bridge network, publishes 8080/9090 and relays each connection to the VM
+# (docker/port_forward.py). `web` moves to 18080/19090 because a published port
+# is also bound inside the VM, and the same number on both sides fails with
+# "address already in use" (measured). The URL and the websocket port the page
+# uses stay the same as on Linux, where none of this is needed.
+#
+# Published on 127.0.0.1 only: rosbridge controls the whole ROS graph and has no
+# authentication. Opening it to the phone is its own step (docs/VISAO_E_ARQUITETURA.md,
+# section 9, step 2).
+#
+# Docker Desktop's "Enable host networking" (Settings > Resources > Network)
+# might make the relay unnecessary; not tested on this machine.
+services:
+  web:
+    command: ros2 launch mestrado_bringup web.launch.py http_port:=18080 ws_port:=19090
+    depends_on:
+      - web-portas
+
+  web-portas:
+    profiles: !reset []
+    init: true
+    stop_signal: SIGINT
+    command: python3 /port_forward.py 8080:18080 9090:19090
+    ports:
+      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - ./port_forward.py:/port_forward.py:ro

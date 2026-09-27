@@ -31,10 +31,11 @@ sEMG (Myo, ou CSV gravado) ──► /emg/raw ──► emg_classifier ──►
 | Ângulo do cotovelo com MediaPipe 1.x | ✅ No vídeo do mestrado, diferença ≤ 3° em relação ao que a ferramenta original mediu |
 | Modo espelho (o braço do Gazebo copia o seu, via câmera) | ✅ Novo; testado com o vídeo do mestrado |
 | Menu (`scripts/menu.sh`) no lugar das telas PyQt | ✅ Captura, treino, análise e braço num menu de terminal |
+| Interface web: o braço pelo navegador (`web/`) | ✅ Setas e deslizadores, vista lateral 2D, comando × real, parada de emergência no controlador. Testada no Windows 11 + WSL2 + Docker Desktop contra o Gazebo sem janela. ⚠️ Linux e celular ainda não testados |
 | Análise dos resultados (a aba "Results" da tela de treino) | ✅ Figuras em PNG, validação cruzada e referência `amplitude`; conclusões em [`docs/ANALISE_RESULTADOS.md`](docs/ANALISE_RESULTADOS.md) |
 | Encerrar com Ctrl+C / `docker compose stop` / `scripts/stop.sh` | ✅ Sem processos sobrando (medido) |
 | Driver do Myo | ⚠️ Portado e com testes do protocolo, **mas nunca rodou com um Myo de verdade** |
-| Janelas (Gazebo e câmera) | ✅ Windows 11 + WSL2 + Docker Desktop: janela do Gazebo abre e o braço se move (renderização por software). ⚠️ Linux com monitor e a janela da câmera só testados em display virtual (Xvfb); webcam não testada |
+| Janelas (Gazebo e câmera) | ✅ Windows 11 + WSL2 + Docker Desktop: as janelas do Gazebo e da câmera abrem e o braço se move (renderização por software; modo espelho com o vídeo do mestrado). ⚠️ Linux com monitor só testado em display virtual (Xvfb); webcam não testada |
 
 O que mudou em relação ao mestrado, e por quê, está em
 [`docs/DECISOES.md`](docs/DECISOES.md). Os problemas encontrados no código
@@ -44,6 +45,7 @@ original estão em [`docs/INVENTARIO_MESTRADO.md`](docs/INVENTARIO_MESTRADO.md).
 
 - Docker com Compose v2.
 - Para ver as janelas: Linux com X11, ou Windows 11 com WSL2 (WSLg).
+- Para a interface web: um navegador. Nenhuma janela é necessária.
 - **Nenhum hardware.** Sem Myo, o sistema reproduz as gravações do mestrado;
   sem webcam, usa um vídeo.
 
@@ -77,6 +79,10 @@ GUI=true docker compose -f docker/compose.yaml -f docker/compose.gui.yaml up sim
 
 # modo espelho com o vídeo do mestrado
 CAMERA=/data/test_2_05.avi FLIP=false docker compose -f docker/compose.yaml -f docker/compose.gui.yaml up espelho
+
+# interface web: o braço pelo navegador, em http://localhost:8080
+docker compose -f docker/compose.yaml up braco web                                  # Linux
+docker compose -f docker/compose.yaml -f docker/compose.desktop.yaml up braco web   # Windows
 ```
 
 ### Encerrar
@@ -95,11 +101,14 @@ janelas, sem processos sobrando. No mestrado era preciso
 | `sim` | Gazebo + fonte de sEMG + classificador + controlador | `SOURCE` (`replay`/`myo`), `CSV`, `MODEL`, `GUI` |
 | `espelho` | Gazebo + câmera: o braço copia o cotovelo visto | `CAMERA`, `FLIP`, `ARM`, `GUI` |
 | `captura` | Ferramenta de captura: câmera + sEMG rotulado por categoria | `EMG`, `CAMERA`, `N_CATEGORIES`, `TOLERANCE`, `SAMPLES`, `CONTINUOUS` |
+| `braco` | Só o braço (Gazebo + controlador + ponte), sem sEMG: para a interface web ou o `ros2 topic pub` | `GUI` |
+| `web` | Interface web: `rosbridge` (websocket, porta 9090) + a página de `web/` (porta 8080) | — |
 | `shell` | Terminal com o workspace carregado | — |
 
 Arquivos adicionais: `compose.gui.yaml` (janelas no Linux),
-`compose.wsl.yaml` (janelas no Windows/WSLg), `compose.camera.yaml` (webcam),
-`compose.myo.yaml` (dongle do Myo).
+`compose.wsl.yaml` (janelas no Windows/WSLg), `compose.desktop.yaml` (Docker
+Desktop: leva as portas da interface web até o Windows), `compose.camera.yaml`
+(webcam), `compose.myo.yaml` (dongle do Myo).
 
 ## Tópicos
 
@@ -115,6 +124,9 @@ um nó driver; classificador e simulador não mudam.
 | `/arm/<junta>/cmd_pos` | `std_msgs/Float64` | Alvo em radianos (`shoulder`, `elbow`, `gripper_left`, `gripper_right`) |
 | `/arm/<junta>/cmd_vel` | `std_msgs/Float64` | Velocidade que o `arm_controller` envia ao Gazebo |
 | `/joint_states` | `sensor_msgs/JointState` | Estado das juntas vindo do Gazebo |
+| `/arm/joint_targets` | `sensor_msgs/JointState` | Alvo que o `arm_controller` está seguindo: o "comando" da interface web |
+| `/arm/estop` | `std_srvs/SetBool` (serviço) | Parada de emergência: `true` para e ignora `cmd_pos`; `false` libera, com o braço onde está |
+| `/arm/estop_active` | `std_msgs/Bool` | Estado da parada, a cada mudança e uma vez por segundo (*transient local*) |
 | `/capture/elbow_angle_deg` | `std_msgs/Float64` | Ângulo do cotovelo medido pela câmera (≈ 170° esticado) |
 | `/capture/recording`, `/capture/status` | `Bool`, `String` | Estado da captura (cor do traçado e progresso na janela) |
 
@@ -130,6 +142,17 @@ um nó driver; classificador e simulador não mudam.
 
 ## Testes e CI
 
+O jeito mais simples, sem instalar nada no host: `scripts/ci_local.sh` roda,
+dentro do Docker, os mesmos passos do CI (compose, imagem, ruff, testes e os
+dois testes de ponta a ponta; uns 2 minutos) e termina com um resumo. Com
+`--rapido`, só compose, ruff e testes (uns 30 s, sem construir a imagem).
+
+```bash
+scripts/ci_local.sh
+```
+
+Ou à mão, no Python do host (sem os testes que dependem de ROS):
+
 ```bash
 pip install numpy scipy scikit-learn PyWavelets pandas joblib pyyaml matplotlib pytest ruff
 ./scripts/fetch_legacy_data.sh
@@ -144,6 +167,7 @@ Os testes cobrem:
 - reprodução da matriz de treino e dos scores históricos;
 - o ângulo do MediaPipe contra o que a ferramenta original imprimiu no vídeo;
 - a lei de controle e a resposta de 1ª ordem;
+- a parada de emergência e o alvo que o controlador publica;
 - a análise (partições da validação cruzada, conferência da taxa, figuras e os
   números citados em `docs/ANALISE_RESULTADOS.md`) e os comandos que o menu monta;
 - o protocolo do Myo sem hardware;
@@ -175,12 +199,13 @@ dissertação, cuja contribuição é a plataforma, e não a acurácia.
 ## Estrutura
 
 ```
-docker/                     Dockerfile, compose (base, janela Linux/WSL, webcam, Myo)
+docker/                     Dockerfile, compose (base, janela Linux/WSL, Docker Desktop, webcam, Myo)
 ros2_ws/src/
   mestrado_emg/             features, treino, protocolo do Myo, controle e nós ROS 2
   mestrado_capture/         ângulo do cotovelo (MediaPipe) e gravação rotulada
   mestrado_description/     modelo SDF do braço + mundo (Gazebo Jetty)
-  mestrado_bringup/         launch files (sim, mestrado, captura, espelho), ponte, gz_sim_group
+  mestrado_bringup/         launch files (sim, mestrado, captura, espelho, web), ponte, gz_sim_group
+web/                        interface web: uma página, sem dependências nem etapa de build
 scripts/                    menu.sh, dados, check_docker.sh, stop.sh, testes de ponta a ponta
 tests/                      pytest (+ legacy_reference: cópias literais do código original)
 docs/                       como rodar, inventário do mestrado, decisões do porte e análise dos resultados
@@ -197,7 +222,7 @@ data/, models/              fora do git (baixados / gerados)
 | `MyoRaw`/`BT` (nos três repositórios) | `mestrado_emg/myo_protocol.py` |
 | `my_arm_def/.../capture_braco_pos.py` + `myo_raw.py` | `nodes/myo_driver.py` + `nodes/emg_classifier.py` |
 | `my_arm_def/.../arm_controller.py` + plugin `arm_control.cpp` | `nodes/arm_controller.py` + `JointController` no `model.sdf` |
-| `my_arm_def/.../show_angles.py` (painel PyQt) | `nodes/angle_monitor.py` |
+| `my_arm_def/.../show_angles.py` (painel PyQt) | `nodes/angle_monitor.py` + `web/index.html` (comando × real) |
 | `braco_antebraco_garra.sdf`, `braco_com_mesa.world` | `mestrado_description/` |
 | `my_arm_definitive.launch.py` + `main.py` (launcher PyQt) | `mestrado_bringup/launch/` + `docker/compose.yaml` + `scripts/menu.sh`, opções 6 e 7 |
 | Botão "Stop" (`stop_myo_and_gazebo`) | `scripts/stop.sh` + `gz_sim_group` |
@@ -211,6 +236,11 @@ data/, models/              fora do git (baixados / gerados)
   encerrando de qualquer forma e não deixa nada preso.
 - A webcam normalmente não chega ao WSL2; no Windows use um vídeo gravado
   (ver `docs/COMO_RODAR.md`).
+- No Docker Desktop (Windows), a rede `host` dos containers não é alcançável
+  do Windows: a interface web precisa do `compose.desktop.yaml`, que repassa as
+  portas.
+- A página não tem senha, e o `rosbridge` dá controle de todo o grafo ROS. Por
+  isso, no Windows, as portas só aceitam conexões do próprio computador.
 - O ângulo da câmera é uma projeção 2D: o braço precisa se mover num plano
   paralelo à câmera, como no mestrado.
 

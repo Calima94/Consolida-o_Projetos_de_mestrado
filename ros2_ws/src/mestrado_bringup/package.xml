@@ -11,6 +11,7 @@
   <exec_depend>launch_ros</exec_depend>
   <exec_depend>ros_gz_sim</exec_depend>
   <exec_depend>ros_gz_bridge</exec_depend>
+  <exec_depend>rosbridge_server</exec_depend>
   <exec_depend>mestrado_description</exec_depend>
   <exec_depend>mestrado_emg</exec_depend>
 

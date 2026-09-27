@@ -10,7 +10,8 @@ traz o Gazebo Jetty (`gz sim` 10) e o `ros_gz`. As bibliotecas científicas vêm
 do apt do Ubuntu (numpy 2.3, scipy 1.16, scikit-learn 1.7, PyWavelets 1.4).
 O argumento `SKIP_ROS_APT_SOURCE=1` existe porque o ambiente de nuvem onde o
 porte foi feito bloqueia `packages.ros.org`. *Rever se* for preciso algum
-pacote ROS fora da imagem (usar `rosdep`).
+pacote ROS fora da imagem (usar `rosdep`). Isso aconteceu com o `rosbridge`,
+e o apt não serviu: ver D19.
 
 **D2. Plugin C++ substituído pelos sistemas oficiais do Gazebo + nó de
 controle.** O `libarm_control.so` usava a API do Gazebo Classic, que não
@@ -148,3 +149,68 @@ Acrescenta o que a tela não tinha: validação cruzada temporal e embaralhada,
 ROC com escore contínuo, conferência da taxa de amostragem e a referência
 `amplitude`. *Rever se* for preciso editar parâmetros do pipeline com
 frequência, caso em que uma interface gráfica voltaria a compensar.
+
+**D18. Interface web: uma página que fala o protocolo do rosbridge.** A guia 1
+de `VISAO_E_ARQUITETURA.md` (o braço) é `web/index.html`: um arquivo só, sem
+dependências nem etapa de build, servido pelo serviço `web` junto com o
+`rosbridge`. A página fala o protocolo JSON do rosbridge diretamente, numa
+classe de umas 65 linhas, em vez de carregar o `roslib.js`: assim funciona sem
+internet, num Pi ou num celular, e não há versão de biblioteca para
+acompanhar. A vista lateral usa as medidas do SDF. A garra aparece também de
+frente, porque os dedos deslizam no eixo de rotação do ombro e do cotovelo e se
+sobrepõem na vista lateral. As faixas dos deslizadores (ombro ±90°, cotovelo
+±150°, abertura de 6 a 22 cm) são conveniência de interface, não limites de
+segurança; o SDF aceita ±180°. O serviço `braco` sobe só o braço, sem janela,
+para ser pilotado pela página. *Rever se* a página crescer a ponto de precisar
+de componentes (as guias de treino e captura), caso em que um framework pode
+compensar.
+
+**D19. `rosbridge` compilado do código-fonte na imagem.** O `rosbridge` não
+vem no `desktop-full`. Instalado pelo apt, ele não carregou
+(`undefined symbol: has_buffer_fields_builtin_interfaces__msg__Time`, medido
+em 2026-09-26). O motivo: o `packages.ros.org` só guarda a última
+sincronização, e a imagem base local estava uma sincronização atrás (254 de 351
+pacotes ROS com versão mais nova). Atualizar a pilha inteira mudaria o Gazebo
+validado. Por isso o Dockerfile clona a tag 4.2.1, confere o commit e compila
+os pacotes necessários contra o ROS da própria imagem (menos de 1 min). Assim
+as mensagens sempre casam com a base, qualquer que seja a sincronização. As
+dependências Python vêm do arquivo do Ubuntu, e a imagem continua sem baixar
+nada de `packages.ros.org`. O workspace é compilado por cima (`/ws/install`
+encadeia `/opt/rosbridge/install`), então o entrypoint não mudou. *Rever se* a
+imagem base passar a ser fixada por digest numa sincronização conhecida, caso
+em que o pacote do apt dessa mesma sincronização serviria.
+
+**D20. Docker Desktop: repasse de portas para a interface web.** Todos os
+serviços ROS usam `network_mode: host`, para o DDS se descobrir entre
+containers. No Docker Desktop, "host" é a máquina virtual do Docker. Uma porta
+aberta ali não responde nem ao Windows nem ao Ubuntu do WSL (medido com um
+`http.server` em modo host). Portas publicadas chegam aos dois, mas só a partir
+de rede bridge. O `compose.desktop.yaml` sobe então o `web-portas`, que publica
+8080 e 9090 e repassa cada conexão para a máquina virtual
+(`docker/port_forward.py`, uma cópia de bytes, que deixa o websocket intacto).
+O `web` passa a escutar em 18080 e 19090, porque a porta publicada também é
+ocupada dentro da máquina virtual, e o mesmo número dos dois lados dá "address
+already in use" (medido). A página e o celular continuam usando 8080 e 9090,
+como no Linux. As portas são publicadas só em `127.0.0.1`, porque o
+`rosbridge` não tem autenticação. O `web-portas` fica declarado, desligado,
+no `compose.yaml` (perfil `desktop`, reativado com `!reset`). Sem isso, os
+outros comandos o acusavam de container órfão e sugeriam `--remove-orphans`.
+*Rever se* a opção "Enable host networking" do Docker Desktop for testada e
+funcionar: ela dispensaria o repasse.
+
+**D21. Parada de emergência e alvo publicado no `arm_controller`.** A regra
+de `VISAO_E_ARQUITETURA.md` (seção 3.4) é que o laço de controle e a segurança
+morem no lado sempre ligado, nunca na página. Por isso a parada é um serviço do
+controlador, `/arm/estop` (`std_srvs/SetBool`). Com `true`, ele manda
+velocidade zero a todas as juntas e ignora `cmd_pos` de qualquer origem até
+receber `false`. Ao parar e ao liberar, o alvo vira a posição atual, e o braço
+não retoma um comando anterior à parada. O estado sai em `/arm/estop_active`
+(*transient local*, a cada mudança e uma vez por segundo), o que também diz à
+página que o controlador está vivo. O controlador passou a publicar ainda o
+alvo que está seguindo, em `/arm/joint_targets`, que é o "comando" que a
+página mostra ao lado do real. Esse é o par comando × realidade de que o
+aprendizado vai precisar. A lei de controle do mestrado não mudou. Medido no
+Gazebo: parado a caminho de 90°, o cotovelo ficou em 70,36° sem deriva em 5 s;
+um `cmd_pos` enviado do terminal durante a parada foi ignorado. *Rever se*
+houver braço físico: aí falta o watchdog de conexão, para o controlador parar
+sozinho quando a página ficar muda.
