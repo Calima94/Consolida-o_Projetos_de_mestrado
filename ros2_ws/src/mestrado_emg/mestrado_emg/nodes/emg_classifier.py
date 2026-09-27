@@ -72,7 +72,7 @@ class EmgClassifierNode(Node):
         self.get_logger().info(
             f"model {bundle['classifier']} ({self.config.feature}, "
             f"{self.config.fs_hz:g} Hz, {self.win}-sample windows), "
-            f"class angles {bundle['class_angles_deg']} deg"
+            f"class angles {bundle['class_angles_deg']} deg; sinal: {self.config.describe()}"
         )
 
     def _on_emg(self, msg: Float32MultiArray) -> None:

@@ -18,10 +18,13 @@ code, and that is harmless.
 
 Known legacy quirk reproduced on purpose (see ``docs/INVENTARIO_MESTRADO.md``):
 the wavelet loop ``for i in range(1, -1, -(levels + 1))`` visits only ``i = 1``,
-so only the coarsest detail band (``cD<levels>``) can ever be zeroed and the
-``wavelet_layers`` setting is effectively ignored beyond that single check.
-Changing this would change the features the historical classifiers saw, so the
-behaviour is kept and pinned by a golden test against the original code.
+and ``-1`` is never among the (positive) layer numbers, so the coarsest detail
+band (``cD<levels>``) is *always* zeroed and ``wavelet_layers`` has no effect.
+Changing this would change the features the historical classifiers saw, so it
+stays the default (``wavelet_mode="legacy"``), pinned by a golden test against
+the original code. ``wavelet_mode="bands"`` does what the thesis screen offered:
+it keeps exactly the detail levels in ``wavelet_layers`` (1 = finest,
+``fs/4..fs/2``) plus, if asked, the approximation, and zeroes the rest.
 """
 
 from __future__ import annotations
@@ -129,6 +132,7 @@ LEGACY_SOS_BANDSTOP = np.array(
 )  # fmt: skip
 
 FeatureType = Literal["mav", "rms"]
+WaveletMode = Literal["legacy", "bands"]
 
 
 @dataclass(frozen=True)
@@ -137,7 +141,8 @@ class LegacyFeatureConfig:
 
     Defaults are the values used by the live classifier in ``my_arm_def``
     (``capture_simple_sample.py``): Myo raw mode at 200 Hz, 250 ms windows,
-    8 channels, Daubechies-7 wavelet with 4 levels, MAV features.
+    8 channels, Daubechies-7 wavelet with 4 levels, MAV features, and the
+    legacy wavelet loop (see the module docstring).
 
     Examples
     --------
@@ -158,12 +163,78 @@ class LegacyFeatureConfig:
     sos_bandstop: tuple[tuple[float, ...], ...] = field(
         default=tuple(map(tuple, LEGACY_SOS_BANDSTOP.tolist())), repr=False
     )
+    wavelet_mode: WaveletMode = "legacy"
+    wavelet_keep_approx: bool = False  # bands mode: keep the approximation too
 
     def __post_init__(self) -> None:
         if self.feature not in ("mav", "rms"):
             raise ValueError(f"feature must be 'mav' or 'rms', got {self.feature!r}")
         if self.samples_per_window < 1:
             raise ValueError("window_ms is shorter than one sample period")
+        if self.wavelet not in pywt.wavelist(kind="discrete"):
+            raise ValueError(f"unknown discrete wavelet {self.wavelet!r} (see pywt.wavelist)")
+        if not 1 <= self.wavelet_levels <= 10:
+            raise ValueError(f"wavelet_levels must be 1..10, got {self.wavelet_levels}")
+        if self.wavelet_mode not in ("legacy", "bands"):
+            raise ValueError(f"wavelet_mode must be 'legacy' or 'bands', got {self.wavelet_mode!r}")
+        if self.wavelet_mode == "bands":
+            fora = [n for n in self.wavelet_layers if not 1 <= n <= self.wavelet_levels]
+            if fora:
+                raise ValueError(f"layers {fora} outside 1..{self.wavelet_levels}")
+            if not self.wavelet_layers and not self.wavelet_keep_approx:
+                raise ValueError("bands mode keeps nothing: choose a layer or the approximation")
+
+    @property
+    def max_useful_level(self) -> int:
+        """Deepest level without boundary effects for this window (pywt rule).
+
+        >>> LegacyFeatureConfig().max_useful_level  # db7 on 50 samples
+        1
+        """
+        return pywt.dwt_max_level(self.samples_per_window, pywt.Wavelet(self.wavelet).dec_len)
+
+    def bands(self) -> list[tuple[str, float, float]]:
+        """Frequency range of each wavelet band, finest first: ``[("D1", lo, hi), ...]``.
+
+        >>> [(n, lo, hi) for n, lo, hi in LegacyFeatureConfig().bands()][:2]
+        [('D1', 50.0, 100.0), ('D2', 25.0, 50.0)]
+        """
+        nyq = self.fs_hz / 2.0
+        out = [(f"D{k}", nyq / 2**k, nyq / 2 ** (k - 1)) for k in range(1, self.wavelet_levels + 1)]
+        return [*out, (f"A{self.wavelet_levels}", 0.0, nyq / 2**self.wavelet_levels)]
+
+    def describe(self) -> str:
+        """The window and wavelet choices in one Portuguese line (logs, summaries).
+
+        >>> LegacyFeatureConfig().describe()
+        'janela 250 ms, db7 com 4 níveis, como no mestrado (só D4 removido)'
+        """
+        base = f"janela {self.window_ms:g} ms, {self.wavelet} com {self.wavelet_levels} níveis"
+        if self.wavelet_mode == "legacy":
+            return base + f", como no mestrado (só D{self.wavelet_levels} removido)"
+        faixas = [f"D{n}" for n in sorted(self.wavelet_layers)]
+        if self.wavelet_keep_approx:
+            faixas.append(f"A{self.wavelet_levels}")
+        return base + ", faixas mantidas: " + " + ".join(faixas)
+
+    def tag(self) -> str:
+        """Short label of the non-default choices, for file names ("" = the thesis setup).
+
+        >>> LegacyFeatureConfig().tag()
+        ''
+        >>> LegacyFeatureConfig(wavelet="sym4", wavelet_levels=2, wavelet_mode="bands",
+        ...                     wavelet_layers=(1, 2), window_ms=300).tag()
+        'sym4-n2-D12-w300'
+        """
+        partes = []
+        if (self.wavelet, self.wavelet_levels) != ("db7", 4):
+            partes.append(f"{self.wavelet}-n{self.wavelet_levels}")
+        if self.wavelet_mode == "bands":
+            camadas = "".join(str(n) for n in sorted(self.wavelet_layers))
+            partes.append(f"D{camadas}" + ("A" if self.wavelet_keep_approx else ""))
+        if self.window_ms != 250.0:
+            partes.append(f"w{self.window_ms:g}")
+        return "-".join(partes)
 
     @classmethod
     def for_sensor(
@@ -231,6 +302,52 @@ class LegacyFeatureConfig:
         return cls(**data)
 
 
+def add_pipeline_args(parser) -> None:
+    """The feature-pipeline options of the thesis training screen, for argparse."""
+    g = parser.add_argument_group("sinal (tela de treino do mestrado)")
+    g.add_argument("--feature", choices=["mav", "rms"], default="mav")
+    g.add_argument("--window-ms", type=float, default=250.0, help="janela em ms (padrão 250)")
+    g.add_argument("--wavelet", default="db7", help="wavelet-mãe (padrão db7)")
+    g.add_argument("--levels", type=int, default=4, help="níveis da decomposição (padrão 4)")
+    g.add_argument(
+        "--wavelet-mode",
+        choices=["legacy", "bands"],
+        default="legacy",
+        help="legacy: laço do mestrado (as camadas não fazem efeito); bands: mantém as camadas",
+    )
+    g.add_argument(
+        "--layers",
+        type=int,
+        nargs="*",  # empty is valid with --approx: keep only the approximation
+        default=[1, 2],
+        help="camadas de detalhe (1 = mais fina)",
+    )
+    g.add_argument("--approx", action="store_true", help="bands: mantém também a aproximação")
+
+
+def config_from_args(args) -> LegacyFeatureConfig:
+    """Build the config from :func:`add_pipeline_args` options (errors as argparse would)."""
+    try:
+        config = LegacyFeatureConfig(
+            feature=args.feature,
+            window_ms=args.window_ms,
+            wavelet=args.wavelet,
+            wavelet_levels=args.levels,
+            wavelet_mode=args.wavelet_mode,
+            wavelet_layers=tuple(args.layers),
+            wavelet_keep_approx=args.approx,
+        )
+    except ValueError as e:
+        raise SystemExit(f"parâmetro inválido: {e}") from e
+    if config.wavelet_levels > config.max_useful_level:
+        print(
+            f"aviso: com janelas de {config.samples_per_window} amostras, {config.wavelet} tem "
+            f"{config.max_useful_level} nível(is) útil(eis); com {config.wavelet_levels}, os níveis "
+            "de baixo são dominados por efeitos de borda (o mestrado usava db7 com 4)."
+        )
+    return config
+
+
 def segment_windows(samples: np.ndarray, config: LegacyFeatureConfig) -> np.ndarray:
     """Cut a continuous recording into non-overlapping windows.
 
@@ -261,20 +378,28 @@ def segment_windows(samples: np.ndarray, config: LegacyFeatureConfig) -> np.ndar
 
 
 def legacy_wavelet_filter(x: np.ndarray, config: LegacyFeatureConfig) -> np.ndarray:
-    """Wavelet decomposition/reconstruction exactly as in the legacy code.
+    """Wavelet decomposition/reconstruction, legacy loop or chosen bands.
 
     Operates along axis 1 of a ``[n_windows, samples_per_window, n_channels]``
-    array. See the module docstring for the reproduced loop quirk.
+    array. See the module docstring for the two modes.
     """
     with warnings.catch_warnings():
         # 4 levels of db7 on 50 samples exceeds pywt's maximum useful level and
         # warns about boundary effects; that is the thesis configuration.
         warnings.filterwarnings("ignore", message="Level value of .* is too high")
         coeffs = pywt.wavedec(x, config.wavelet, level=config.wavelet_levels, axis=1)
-    # Verbatim loop bounds from the original wav_filter(); visits only i = 1.
-    for i in range(1, -1, -(config.wavelet_levels + 1)):
-        if -i not in config.wavelet_layers:
-            coeffs[i] = np.zeros_like(coeffs[i])
+    if config.wavelet_mode == "legacy":
+        # Verbatim loop bounds from the original wav_filter(); visits only i = 1.
+        for i in range(1, -1, -(config.wavelet_levels + 1)):
+            if -i not in config.wavelet_layers:
+                coeffs[i] = np.zeros_like(coeffs[i])
+    else:
+        # coeffs = [A_L, D_L, ..., D_1]: coeffs[-k] is detail level k
+        for k in range(1, config.wavelet_levels + 1):
+            if k not in config.wavelet_layers:
+                coeffs[-k] = np.zeros_like(coeffs[-k])
+        if not config.wavelet_keep_approx:
+            coeffs[0] = np.zeros_like(coeffs[0])
     rec = pywt.waverec(coeffs, config.wavelet, axis=1)
     # -> [n_windows, samples_per_window, n_channels] (waverec may pad by one)
     return rec[:, : x.shape[1], :]

@@ -28,7 +28,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
 from pathlib import Path
 
 import numpy as np
@@ -47,13 +46,14 @@ from sklearn.model_selection import StratifiedKFold
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import FunctionTransformer
 
-from mestrado_emg.features import LegacyFeatureConfig
+from mestrado_emg.features import LegacyFeatureConfig, add_pipeline_args, config_from_args
 from mestrado_emg.training import (
     SplitMode,
     WindowDataset,
     build_dataset,
     load_legacy_csv,
     make_classifiers,
+    run_name,
     sha256_of,
     split_indices,
 )
@@ -220,8 +220,7 @@ def analyze(
     for ch in pair:
         if not 1 <= ch <= config.n_channels:
             raise ValueError(f"channel {ch} outside 1..{config.n_channels}")
-    stem = re.sub(r"[^A-Za-z0-9]+", "-", csv_path.stem).strip("-")
-    out = Path(out_dir) / f"{stem}_{config.feature}_{split}"
+    out = Path(out_dir) / run_name(csv_path, config, split)
     out.mkdir(parents=True, exist_ok=True)
 
     rate = estimate_rate_hz(csv_path)
@@ -387,6 +386,7 @@ def _summary_md(r: dict, split: str) -> str:
         f"semente: {r['seed']}; scikit-learn {r['sklearn_version']}",
         f"- janelas: {r['n_windows']['total']} (por categoria {r['n_windows']['per_class']}); "
         f"treino {r['n_windows']['train']}, teste {r['n_windows']['test']}",
+        f"- sinal: {LegacyFeatureConfig.from_dict(r['feature_config']).describe()}",
     ]
     if r["measured_rate_hz"]:
         lines.append(f"- taxa medida: ~{r['measured_rate_hz']:.0f} amostras/s")
@@ -425,7 +425,6 @@ def main(argv: list[str] | None = None) -> None:
     p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     p.add_argument("csv", help="raw CSV from Capture_EMG_Data (e.g. 6_10_20220.csv)")
     p.add_argument("--out", default="models/analise", help="output directory")
-    p.add_argument("--feature", choices=["mav", "rms"], default="mav")
     p.add_argument("--split", choices=["legacy", "temporal"], default="temporal")
     p.add_argument("--seed", type=int, default=42)
     p.add_argument("--test-size", type=float, default=0.3)
@@ -439,12 +438,14 @@ def main(argv: list[str] | None = None) -> None:
         metavar=("CH_X", "CH_Y"),
         help="channels (1-based) for the feature scatter plot",
     )
+    add_pipeline_args(p)
     args = p.parse_args(argv)
+    config = config_from_args(args)
 
     report = analyze(
         args.csv,
         args.out,
-        LegacyFeatureConfig(feature=args.feature),
+        config,
         split=args.split,
         seed=args.seed,
         test_size=args.test_size,
@@ -453,8 +454,7 @@ def main(argv: list[str] | None = None) -> None:
         pair=tuple(args.pair),
     )
     print(_summary_md(report, args.split))
-    stem = re.sub(r"[^A-Za-z0-9]+", "-", Path(args.csv).stem).strip("-")
-    print(f"figuras em {Path(args.out) / f'{stem}_{args.feature}_{args.split}'}")
+    print(f"figuras em {Path(args.out) / run_name(args.csv, config, args.split)}")
 
 
 if __name__ == "__main__":
