@@ -27,6 +27,7 @@ Host header must be this machine (no DNS rebinding).
 from __future__ import annotations
 
 import argparse
+import csv
 import hashlib
 import itertools
 import json
@@ -173,6 +174,50 @@ class Docker:
 # ------------------------------------------------------------------ catalogue
 
 
+FILTROS = {".csv", ".txt", ".json", ".npy"}  # formats mestrado_emg.features.load_sos reads
+_info_cache: dict[Path, tuple[tuple[float, int], dict]] = {}
+
+
+def info_gravacao(path: Path) -> dict:
+    """Channels in the header and the rate the ``time`` column suggests (cached by mtime).
+
+    The rate is a hint for the page only: the Myo files of the thesis timestamp
+    irregularly, and the training uses the rate the user sets.
+    """
+    try:
+        st = path.stat()
+    except OSError:
+        return {"canais": 0, "taxa": None}
+    chave = (st.st_mtime, st.st_size)
+    guardado = _info_cache.get(path)
+    if guardado and guardado[0] == chave:
+        return guardado[1]
+    canais, taxa = 0, None
+    try:
+        with open(path, encoding="utf-8-sig", newline="") as f:
+            leitor = csv.reader(f)
+            cabecalho = [c.strip().lower() for c in next(leitor)]
+            canais = sum(bool(re.match(r"(chanel|channel)", c)) for c in cabecalho)
+            if "time" in cabecalho:
+                i, tempos = cabecalho.index("time"), []
+                for linha in itertools.islice(leitor, 5000):
+                    try:
+                        tempos.append(float(linha[i]))
+                    except (ValueError, IndexError):
+                        pass
+                # Samples over the forward span, as analysis.estimate_rate_hz: the Myo
+                # stamps its samples in pairs, so a median step would double-count.
+                passos = [b - a for a, b in itertools.pairwise(tempos)]
+                vao = sum(p for p in passos if p > 0)
+                if vao > 0:
+                    taxa = round(len(passos) / vao)
+    except (OSError, StopIteration, UnicodeDecodeError, csv.Error):
+        pass
+    info = {"canais": canais, "taxa": taxa}
+    _info_cache[path] = (chave, info)
+    return info
+
+
 def opcoes(repo: Path) -> dict:
     """What exists on disk to choose from (the menu's lists)."""
     data, models = repo / "data", repo / "models"
@@ -180,7 +225,15 @@ def opcoes(repo: Path) -> dict:
     videos = sorted(p.name for p in data.glob("*") if p.suffix.lower() in VIDEOS)
     modelos = sorted(p.name for p in models.glob("*_latest.joblib"))
     analises = sorted(p.name for p in (models / "analise").glob("*") if p.is_dir())
-    return {"csvs": csvs, "videos": videos, "modelos": modelos, "analises": analises}
+    filtros = sorted(p.name for p in (data / "filtros").glob("*") if p.suffix.lower() in FILTROS)
+    return {
+        "csvs": csvs,
+        "videos": videos,
+        "modelos": modelos,
+        "analises": analises,
+        "filtros": filtros,
+        "gravacoes": {nome: info_gravacao(data / nome) for nome in csvs},
+    }
 
 
 def _escolha(p: dict, nome: str, validos: list[str], padrao: str) -> str:
@@ -357,13 +410,39 @@ WAVELET = re.compile(
 )
 
 
-def _sinal(p: dict) -> tuple[list[str], str]:
-    """Window and wavelet choices of the thesis training screen.
+def _filtros(p: dict, opc: dict | None, fs: float) -> tuple[list[str], str]:
+    """The IIR choice: the thesis coefficients, designed for fs, or files in data/filtros."""
+    modo = _escolha(p, "filtros", ["mestrado", "projetados", "arquivos"], "mestrado")
+    if modo == "projetados":
+        hp = _num(p, "passa_altas_hz", 20, 0.1, fs / 2 - 0.1)
+        rede = _escolha(p, "rede_hz", ["60", "50", "0"], "60")
+        tag = f"hp{hp}" + (f"-rf{rede}" if rede != "0" else "-srf")
+        return ["--filters", "design", "--highpass-hz", hp, "--mains-hz", rede], tag
+    if modo == "arquivos":
+        validos = ["", *(opc or {}).get("filtros", [])]
+        a = _escolha(p, "arquivo_passa_altas", validos, "")
+        b = _escolha(p, "arquivo_rejeita_faixa", validos, "")
+        if not a and not b:
+            raise Recusado("Escolha ao menos um arquivo de filtro (eles ficam em data/filtros/).")
+        args = ["--filters", "files"]
+        args += ["--highpass-file", f"/data/filtros/{a}"] if a else []
+        args += ["--bandstop-file", f"/data/filtros/{b}"] if b else []
+        nomes = [re.sub(r"[^A-Za-z0-9]+", "", Path(x).stem)[:12] or "nenhum" for x in (a, b)]
+        return args, "iir-" + "-".join(nomes)
+    return [], ""
+
+
+def _sinal(p: dict, opc: dict | None = None, canais: int = 8) -> tuple[list[str], str]:
+    """Rate, filters, window and wavelet choices of the thesis training screen.
 
     Returns the extra command-line options (only those that differ from the
     thesis, so the default command stays the menu's) and the tag that
     mestrado_emg.features.LegacyFeatureConfig.tag() gives the same choices.
+    ``canais`` is the recording's channel count, which the training reads from
+    the file itself; it only enters the tag.
     """
+    fs = _num(p, "fs", 200, 20, 20000)
+    filtros, tag_filtros = _filtros(p, opc, float(fs))
     janela = _num(p, "janela", 250, 20, 2000)
     wavelet = str(p.get("wavelet", "db7"))
     if not WAVELET.fullmatch(wavelet):
@@ -371,6 +450,14 @@ def _sinal(p: dict) -> tuple[list[str], str]:
     niveis = _int(p, "niveis", 4, 1, 10)
     modo = _escolha(p, "modo", ["mestrado", "faixas"], "mestrado")
     args, partes = [], []  # args in the menu's order, tag in LegacyFeatureConfig.tag()'s
+    if fs != "200":
+        args += ["--fs", fs]
+        partes.append(f"fs{fs}")
+    if canais != 8:
+        partes.append(f"c{canais}")
+    args += filtros
+    if tag_filtros:
+        partes.append(tag_filtros)
     if janela != "250":
         args += ["--window-ms", janela]
     if (wavelet, niveis) != ("db7", 4):
@@ -395,9 +482,13 @@ def _sinal(p: dict) -> tuple[list[str], str]:
     return args, "-".join(partes)
 
 
+def _canais(opc: dict, gravacao: str) -> int:
+    return opc.get("gravacoes", {}).get(gravacao, {}).get("canais") or 8
+
+
 def plano_treino(p: dict, amb: Ambiente, opc: dict) -> Plano:
     csv, feature, divisao, semente = _treino_args(p, opc)
-    extra, _ = _sinal(p)
+    extra, _ = _sinal(p, opc, _canais(opc, csv))
     argv = [
         *_compose(BASE), "run", "--rm", "train",
         "ros2", "run", "mestrado_emg", "train_legacy", f"/data/{csv}", "--out", "/models",
@@ -414,7 +505,7 @@ def pasta_analise(csv: str, feature: str, divisao: str, tag: str = "") -> str:
 
 def plano_analise(p: dict, amb: Ambiente, opc: dict) -> Plano:
     csv, feature, divisao, semente = _treino_args(p, opc)
-    extra, tag = _sinal(p)
+    extra, tag = _sinal(p, opc, _canais(opc, csv))
     particoes = _int(p, "particoes", 5, 2, 20)
     canais = str(p.get("canais", "1 2")).split()
     if len(canais) != 2 or not all(re.fullmatch(r"[1-8]", c) for c in canais):

@@ -114,19 +114,40 @@ run() {
   echo "  (terminou com código $rc)"
 }
 
-# The window and wavelet fields of the thesis training screen, behind one
-# question so that Enter keeps the thesis setup. Fills SIGNAL_ARGS with the
-# options that differ from it (train_legacy/analyze_legacy --help).
+# The rate, filter, window and wavelet fields of the thesis training screen,
+# behind one question so that Enter keeps the thesis setup. Fills SIGNAL_ARGS
+# with the options that differ from it (train_legacy/analyze_legacy --help),
+# in the same order as scripts/painel.py. The channels come from the file.
 ask_signal() {
   SIGNAL_ARGS=()
-  local adv janela wavelet levels mode layers approx
-  ask adv "ajustar janela e wavelet? (s/N)" "n"
+  local adv fs filters hp mains fhp fbs janela wavelet levels mode layers approx
+  ask adv "ajustar frequência, filtros, janela e wavelet? (s/N)" "n"
   case "$adv" in s | S) ;; *) return ;; esac
+  ask fs "frequência de amostragem (Hz)" "200"
+  echo "  filtros: 'mestrado' usa os coeficientes do mestrado (feitos para 200 Hz);"
+  echo "           'projetados' calcula para a frequência acima; 'arquivos' lê de data/filtros/"
+  choose filters "filtros:" "mestrado" mestrado projetados arquivos
+  [ "$fs" = 200 ] || SIGNAL_ARGS+=(--fs "$fs")
+  case "$filters" in
+    projetados)
+      ask hp "passa-altas (Hz)" "20"
+      choose mains "rede elétrica (Hz; 0 = sem rejeita-faixa):" "60" 60 50 0
+      SIGNAL_ARGS+=(--filters design --highpass-hz "$hp" --mains-hz "$mains")
+      ;;
+    arquivos)
+      ls data/filtros 2>/dev/null | sed 's/^/    /'
+      ask fhp "arquivo do passa-altas em data/filtros (Enter = nenhum)" ""
+      ask fbs "arquivo do rejeita-faixa em data/filtros (Enter = nenhum)" ""
+      SIGNAL_ARGS+=(--filters files)
+      [ -z "$fhp" ] || SIGNAL_ARGS+=(--highpass-file "/data/filtros/$fhp")
+      [ -z "$fbs" ] || SIGNAL_ARGS+=(--bandstop-file "/data/filtros/$fbs")
+      ;;
+  esac
   ask janela "janela em ms" "250"
   ask wavelet "wavelet-mãe (db7, sym4, coif2, haar...)" "db7"
   choose levels "níveis da decomposição:" "4" 1 2 3 4 5 6
   echo "  camadas: 'mestrado' repete o código original (a escolha de camadas não faz efeito);"
-  echo "           'faixas' mantém só as camadas escolhidas (1 = a mais fina, 50-100 Hz)"
+  echo "           'faixas' mantém só as camadas escolhidas (1 = a mais fina, fs/4 a fs/2)"
   choose mode "modo:" "mestrado" mestrado faixas
   [ "$janela" = 250 ] || SIGNAL_ARGS+=(--window-ms "$janela")
   if [ "$wavelet" != db7 ] || [ "$levels" != 4 ]; then

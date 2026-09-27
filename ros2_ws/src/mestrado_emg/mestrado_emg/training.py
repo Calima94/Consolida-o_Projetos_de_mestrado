@@ -53,6 +53,7 @@ from mestrado_emg.features import (
     LegacyFeatureConfig,
     add_pipeline_args,
     config_from_args,
+    count_channels,
     extract_features,
 )
 
@@ -309,7 +310,7 @@ def main(argv: list[str] | None = None) -> None:
     report = train_all(
         args.csv,
         args.out,
-        config_from_args(args),
+        config_from_args(args, count_channels(args.csv)),
         split=args.split,
         seed=args.seed,
         test_size=args.test_size,

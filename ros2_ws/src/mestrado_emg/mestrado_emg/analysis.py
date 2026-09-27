@@ -46,7 +46,12 @@ from sklearn.model_selection import StratifiedKFold
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import FunctionTransformer
 
-from mestrado_emg.features import LegacyFeatureConfig, add_pipeline_args, config_from_args
+from mestrado_emg.features import (
+    LegacyFeatureConfig,
+    add_pipeline_args,
+    config_from_args,
+    count_channels,
+)
 from mestrado_emg.training import (
     SplitMode,
     WindowDataset,
@@ -440,7 +445,7 @@ def main(argv: list[str] | None = None) -> None:
     )
     add_pipeline_args(p)
     args = p.parse_args(argv)
-    config = config_from_args(args)
+    config = config_from_args(args, count_channels(args.csv))
 
     report = analyze(
         args.csv,

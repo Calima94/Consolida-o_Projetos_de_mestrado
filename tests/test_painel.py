@@ -188,15 +188,24 @@ def test_one_simulation_at_a_time():
 def test_catalogue_lists_what_exists(tmp_path):
     (tmp_path / "data").mkdir()
     (tmp_path / "models" / "analise" / "x_mav_temporal").mkdir(parents=True)
-    for nome in ("6_10_20220.csv", "scores_of_classifiers.csv", "test_2_05.avi", "notas.txt"):
+    for nome in ("scores_of_classifiers.csv", "test_2_05.avi", "notas.txt"):
         (tmp_path / "data" / nome).write_text("")
+    (tmp_path / "data" / "gestos.csv").write_text(
+        "time,chanel1,chanel2,chanel3,chanel4,position\n"
+        + "".join(f"{i / 1000:.3f},1,2,3,4,0\n" for i in range(50))
+    )
+    (tmp_path / "data" / "filtros").mkdir()
+    for nome in ("passa_altas.csv", "leia-me.md"):
+        (tmp_path / "data" / "filtros" / nome).write_text("")
     for nome in ("knn_a_latest.joblib", "knn_a_2026-09-26.joblib"):
         (tmp_path / "models" / nome).write_text("")
     assert painel.opcoes(tmp_path) == {
-        "csvs": ["6_10_20220.csv"],
+        "csvs": ["gestos.csv"],
         "videos": ["test_2_05.avi"],
         "modelos": ["knn_a_latest.joblib"],
         "analises": ["x_mav_temporal"],
+        "filtros": ["passa_altas.csv"],
+        "gravacoes": {"gestos.csv": {"canais": 4, "taxa": 1000}},
     }
 
 
@@ -365,34 +374,78 @@ def test_bad_signal_choices_are_refused(p):
         painel._sinal(p)
 
 
+GESTOS = {"fs": "1000", "janela": "200", "filtros": "projetados", "passa_altas_hz": "20",
+          "rede_hz": "60"}  # fmt: skip
+
+
 @pytest.mark.parametrize(
-    "p",
+    "p, canais",
     [
-        {},
-        NOVO,
-        {"wavelet": "db4", "niveis": "2"},
-        {"modo": "faixas", "camadas": [2, 1]},
-        {"modo": "faixas", "camadas": [], "aproximacao": True},
-        {"janela": "500"},
+        ({}, 8),
+        (NOVO, 8),
+        ({"wavelet": "db4", "niveis": "2"}, 8),
+        ({"modo": "faixas", "camadas": [2, 1]}, 8),
+        ({"modo": "faixas", "camadas": [], "aproximacao": True}, 8),
+        ({"janela": "500"}, 8),
+        (GESTOS, 4),
+        ({"fs": "1000"}, 4),
+        ({"filtros": "projetados", "rede_hz": "0", "passa_altas_hz": "10.5"}, 8),
+        ({"filtros": "arquivos", "arquivo_passa_altas": "hp.json"}, 8),
+        (
+            {
+                "filtros": "arquivos",
+                "arquivo_passa_altas": "hp.json",
+                "arquivo_rejeita_faixa": "rejeita_60.json",
+            },
+            2,
+        ),  # fmt: skip
     ],
 )
-def test_the_panel_names_the_folder_the_training_code_will_write(p):
+def test_the_panel_names_the_folder_the_training_code_will_write(p, canais, tmp_path):
     """The panel's tag and the one train_legacy computes from the panel's own arguments."""
     pytest.importorskip("pywt", reason="needs the pipeline (host CI job or the image)")
     import argparse
+    import json
 
-    from mestrado_emg.features import add_pipeline_args, config_from_args
+    from mestrado_emg.features import LEGACY_SOS_HIGHPASS, add_pipeline_args, config_from_args
 
-    args, tag = painel._sinal(p)
+    for nome in ("hp.json", "rejeita_60.json"):  # stand-ins for data/filtros
+        (tmp_path / nome).write_text(json.dumps(LEGACY_SOS_HIGHPASS.tolist()))
+    args, tag = painel._sinal(p, {"filtros": ["hp.json", "rejeita_60.json"]}, canais)
+    args = [a.replace("/data/filtros", str(tmp_path)) for a in args]
     parser = argparse.ArgumentParser()
     add_pipeline_args(parser)
-    assert config_from_args(parser.parse_args(args)).tag() == tag
+    assert config_from_args(parser.parse_args(args), canais).tag() == tag
+
+
+def test_gesture_recordings_at_1khz_with_designed_filters():
+    args, tag = painel._sinal(GESTOS, None, 4)
+    assert args == ["--fs", "1000", "--filters", "design", "--highpass-hz", "20", "--mains-hz",
+                    "60", "--window-ms", "200"]  # fmt: skip
+    assert tag == "fs1000-c4-hp20-rf60-w200"
+
+
+@pytest.mark.parametrize(
+    "p",
+    [
+        {"fs": "5"},
+        {"filtros": "projetados", "passa_altas_hz": "150"},  # above Nyquist at 200 Hz
+        {"filtros": "projetados", "rede_hz": "55"},
+        {"filtros": "arquivos"},  # no file chosen
+        {"filtros": "arquivos", "arquivo_passa_altas": "../../etc/passwd"},
+    ],
+)
+def test_bad_rate_or_filter_choices_are_refused(p):
+    with pytest.raises(painel.Recusado):
+        painel._sinal(p, {"filtros": ["hp.json"]})
 
 
 @pytest.mark.skipif(sys.platform != "linux", reason="bash script for WSL/Linux")
 def test_the_menu_asks_the_same_signal_choices():
-    menu = _menu_command("4\n\n\n\n\ns\n300\nsym4\n2\nfaixas\n1\ns\n0\n")
+    menu = _menu_command("4\n\n\n\n\ns\n\n\n300\nsym4\n2\nfaixas\n1\ns\n0\n")
     assert menu.endswith("--seed 42 " + " ".join(NOVO_ARGS))
+    gestos = _menu_command("4\n\n\n\n\ns\n1000\nprojetados\n20\n60\n200\n\n\n\n0\n")
+    assert gestos.endswith("--seed 42 " + " ".join(painel._sinal(GESTOS)[0]))
 
 
 def test_a_panel_older_than_its_file_only_stops_things(tmp_path, monkeypatch):

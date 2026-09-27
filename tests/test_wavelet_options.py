@@ -131,8 +131,12 @@ def test_models_of_another_setup_do_not_overwrite_the_thesis_ones(tmp_path):
 
 
 def test_the_choices_are_described_in_logs_and_summaries():
-    assert LegacyFeatureConfig().describe() == (
-        "janela 250 ms, db7 com 4 níveis, como no mestrado (só D4 removido)"
+    assert (
+        LegacyFeatureConfig()
+        .describe()
+        .endswith("janela 250 ms, db7 com 4 níveis, como no mestrado (só D4 removido)")
     )
     cfg = bands(wavelet="sym4", wavelet_levels=2, wavelet_layers=(2, 1), wavelet_keep_approx=True)
-    assert cfg.describe() == "janela 250 ms, sym4 com 2 níveis, faixas mantidas: D1 + D2 + A2"
+    assert cfg.describe().endswith(
+        "janela 250 ms, sym4 com 2 níveis, faixas mantidas: D1 + D2 + A2"
+    )
