@@ -65,6 +65,15 @@ services:
       camera:=${CAMERA:-0} flip:=${FLIP:-true} arm:=${ARM:-right}
       gui:=${GUI:-true} show_window:=${SHOW_WINDOW:-true}
 
+  # A real elbow movement (Reach&Grasp, Vicon) replayed on the arm: no sEMG,
+  # no model. Download first: scripts/fetch_reach_grasp.py (docs/DECISOES.md, D27).
+  movimento:
+    <<: *ros
+    command: >
+      ros2 launch mestrado_bringup movimento.launch.py
+      subject:=${SUBJECT:-1} task:=${TASK:-ReaCyl} speed:=${SPEED:-1.0}
+      loop:=${LOOP:-true} gui:=${GUI:-true}
+
   # The arm alone (Gazebo + controller + bridge), nothing commanding it: for
   # the browser interface or `ros2 topic pub`. Headless unless GUI=true.
   braco:

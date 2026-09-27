@@ -20,6 +20,7 @@ services:
       - /dev/dri:/dev/dri
   espelho: *x11
   braco: *x11
+  movimento: *x11
   shell:
     environment:
       - DISPLAY=${DISPLAY:-:0}

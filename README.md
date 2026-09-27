@@ -30,6 +30,7 @@ sEMG (Myo, ou CSV gravado) ──► /emg/raw ──► emg_classifier ──►
 | Ferramenta de captura (`Capture_EMG_Data`) | ✅ Portada; ensaio completo sem hardware (vídeo do mestrado + sEMG reproduzido) no CI |
 | Ângulo do cotovelo com MediaPipe 1.x | ✅ No vídeo do mestrado, diferença ≤ 3° em relação ao que a ferramenta original mediu |
 | Modo espelho (o braço do Gazebo copia o seu, via câmera) | ✅ Novo; testado com o vídeo do mestrado |
+| Movimento real: um cotovelo humano gravado (Reach&Grasp) move o braço | ✅ Novo (D27); teste de ponta a ponta no CI. O braço segue a forma do movimento (correlação 0,98), 0,7 a 0,8 s atrás, por causa do controle do mestrado (achado 29). ⚠️ Ainda não visto no Windows |
 | Menu (`scripts/menu.sh`) no lugar das telas PyQt | ✅ Captura, treino, análise e braço num menu de terminal |
 | Painel (`scripts/painel.py`): os comandos como botões no navegador | ✅ Todas as ações do menu, mais testes e "parar tudo"; uma simulação por vez; saída ao vivo. Testado no Windows 11 + WSL2 + Docker Desktop |
 | Interface web: o braço pelo navegador (`web/`) | ✅ Setas e deslizadores, vista lateral 2D, comando × real, parada de emergência no controlador. Testada no Windows 11 + WSL2 + Docker Desktop contra o Gazebo sem janela. ⚠️ Linux e celular ainda não testados |
@@ -91,6 +92,10 @@ GUI=true docker compose -f docker/compose.yaml -f docker/compose.gui.yaml up sim
 # modo espelho com o vídeo do mestrado
 CAMERA=/data/test_2_05.avi FLIP=false docker compose -f docker/compose.yaml -f docker/compose.gui.yaml up espelho
 
+# movimento real: um cotovelo humano gravado (Reach&Grasp) move o braço
+./scripts/fetch_reach_grasp.py --subjects 1 --tasks ReaCyl EatFruit                 # ~4 MB -> ./data/reach_grasp
+TASK=EatFruit docker compose -f docker/compose.yaml -f docker/compose.gui.yaml up movimento
+
 # interface web: o braço pelo navegador, em http://localhost:8080
 docker compose -f docker/compose.yaml up braco web                                  # Linux
 docker compose -f docker/compose.yaml -f docker/compose.desktop.yaml up braco web   # Windows
@@ -111,6 +116,7 @@ janelas, sem processos sobrando. No mestrado era preciso
 | `train` | Treina os 5 classificadores a partir do CSV (e roda o `analyze_legacy`) | — |
 | `sim` | Gazebo + fonte de sEMG + classificador + controlador | `SOURCE` (`replay`/`myo`), `CSV`, `MODEL`, `GUI` |
 | `espelho` | Gazebo + câmera: o braço copia o cotovelo visto | `CAMERA`, `FLIP`, `ARM`, `GUI` |
+| `movimento` | Gazebo + um cotovelo humano gravado (Reach&Grasp, Vicon) como alvo | `SUBJECT` (1–10), `TASK`, `SPEED`, `LOOP`, `GUI` |
 | `captura` | Ferramenta de captura: câmera + sEMG rotulado por categoria | `EMG`, `CAMERA`, `N_CATEGORIES`, `TOLERANCE`, `SAMPLES`, `CONTINUOUS` |
 | `braco` | Só o braço (Gazebo + controlador + ponte), sem sEMG: para a interface web ou o `ros2 topic pub` | `GUI` |
 | `web` | Interface web: `rosbridge` (websocket, porta 9090) + a página de `web/` (porta 8080) | — |
@@ -139,6 +145,7 @@ um nó driver; classificador e simulador não mudam.
 | `/arm/estop` | `std_srvs/SetBool` (serviço) | Parada de emergência: `true` para e ignora `cmd_pos`; `false` libera, com o braço onde está |
 | `/arm/estop_active` | `std_msgs/Bool` | Estado da parada, a cada mudança e uma vez por segundo (*transient local*) |
 | `/capture/elbow_angle_deg` | `std_msgs/Float64` | Ângulo do cotovelo medido pela câmera (≈ 170° esticado) |
+| `/reach_grasp/elbow_deg` | `std_msgs/Float64` | Ângulo do cotovelo gravado no Reach&Grasp (0° esticado), no modo movimento real |
 | `/capture/recording`, `/capture/status` | `Bool`, `String` | Estado da captura (cor do traçado e progresso na janela) |
 
 ### Trocar de sensor
@@ -183,16 +190,22 @@ Os testes cobrem:
   números citados em `docs/ANALISE_RESULTADOS.md`) e os comandos que o menu monta;
 - o protocolo do Myo sem hardware;
 - a consistência entre o SDF, a ponte ROS↔Gazebo, o controlador e o compose;
+- a leitura dos arquivos do Reach&Grasp, o alvo do cotovelo e as lacunas do
+  Vicon (`tests/test_reach_grasp.py`);
 - o encerramento do grupo de processos do Gazebo.
 
 O CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) roda isso,
 constrói a imagem, repete os testes dentro dela (incluindo os que dependem de
-ROS e MediaPipe) e executa dois testes de ponta a ponta:
+ROS e MediaPipe) e executa três testes de ponta a ponta:
 
 - [`integration_test.sh`](scripts/integration_test.sh): sEMG → kNN → cotovelo
   0° ↔ 90°, com encerramento limpo;
 - [`capture_test.sh`](scripts/capture_test.sh): captura completa com o vídeo
-  do mestrado e o modo espelho.
+  do mestrado e o modo espelho;
+- [`movement_test.sh`](scripts/movement_test.sh): um ensaio do Reach&Grasp
+  (sujeito 1, `ReaCyl`, baixado do Dataverse no CI) move o braço, que tem de
+  seguir a forma do movimento (correlação ≥ 0,8 e pelo menos metade da
+  excursão).
 
 ## Resultados reproduzidos
 
@@ -226,7 +239,7 @@ ros2_ws/src/
   mestrado_description/     modelo SDF do braço + mundo (Gazebo Jetty)
   mestrado_bringup/         launch files (sim, mestrado, captura, espelho, web), ponte, gz_sim_group
 web/                        interface web: uma página, sem dependências nem etapa de build
-scripts/                    painel.py (+ painel.html), menu.sh, dados (mestrado e gestos), check_docker.sh, stop.sh, ci_local.sh, testes de ponta a ponta
+scripts/                    painel.py (+ painel.html), menu.sh, dados (mestrado, gestos, Reach&Grasp), check_docker.sh, stop.sh, ci_local.sh, testes de ponta a ponta
 tests/                      pytest (+ legacy_reference: cópias literais do código original)
 docs/                       como rodar, inventário do mestrado, decisões do porte e análises (mestrado e gestos)
 data/, models/              fora do git (baixados / gerados)

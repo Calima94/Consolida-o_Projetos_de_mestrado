@@ -6,7 +6,8 @@
 > [Decisões que não devem ser revertidas](#decisões-que-não-devem-ser-revertidas)
 > existe porque cada item dela já custou tempo real.
 >
-> Escrito em 26/09/2026 e atualizado no mesmo dia, com a guia 1 (braço) pronta.
+> Escrito em 26/09/2026 e atualizado no mesmo dia, com a guia 1 (braço) pronta;
+> em 27/09/2026 entrou o movimento real (Reach&Grasp, D27).
 > Atualize-o quando uma decisão mudar — não deixe o documento envelhecer em
 > silêncio.
 
@@ -24,6 +25,7 @@ Estado **verificado rodando** em Windows 11 + WSL2 + Docker + ROS 2, em 26/09/20
 | Braço no Gazebo | menu, opção 6 | janela abre, cotovelo obedece comando |
 | Sistema completo | menu, opção 7 | sEMG → classificador → braço, laço fechado |
 | Modo espelho | menu, opção 8 | vídeo → visão computacional → braço |
+| Movimento real (Reach&Grasp, D27) | menu, opção 14; painel, cartão "Movimento real" (COMO_RODAR, passo 8) | cotovelo humano gravado (Vicon) → braço, o alvo da regressão contínua. **Testado só no Linux e no CI**, ainda não no Windows |
 | **Interface web — guia 1 (braço)** | `up braco web` → `http://localhost:8080` (COMO_RODAR, passo 5) | navegador → rosbridge → ROS 2 → Gazebo sem janela; comando × real; parada de emergência |
 
 O modelo é `braco_antebraco_garra`: ombro, cotovelo e **garra** (duas juntas).

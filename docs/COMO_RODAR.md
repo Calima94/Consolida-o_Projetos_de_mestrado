@@ -12,8 +12,11 @@ roda dentro do Docker: você não instala ROS nem Gazebo no seu sistema.
 >   se move;
 > - o [passo 5](#5-pilotar-o-braço-pelo-navegador): a interface web, no
 >   navegador do Windows;
-> - os passos 6 a 8, pelo menu, com o vídeo do mestrado e sEMG reproduzido. No
->   modo espelho, as janelas da câmera e do Gazebo abrem juntas.
+> - os passos 6, 7 e 9, pelo menu, com o vídeo do mestrado e sEMG reproduzido.
+>   No modo espelho, as janelas da câmera e do Gazebo abrem juntas.
+>
+> O [passo 8](#8-movimento-real-o-braço-repete-um-cotovelo-humano) (movimento
+> real) foi testado **só no Linux sem monitor e no CI**; falta vê-lo no Windows.
 >
 > **Ainda não** foram testados o Linux com monitor de verdade, a interface web
 > no Linux e no celular, a webcam e a faixa Myo. Se algo falhar, a seção
@@ -135,7 +138,7 @@ Arquivo de janela para o Linux: `docker/compose.gui.yaml`.
 
 ## Rodando
 
-**Atalho: o painel.** Depois do passo 1, o painel faz os passos 2 a 9 com
+**Atalho: o painel.** Depois do passo 1, o painel faz os passos 2 a 10 com
 botões no navegador, inclusive a interface web do passo 5, os testes e "parar
 tudo". Cada botão usa os padrões abaixo; as opções ficam em "Opções", no
 próprio cartão. Ao lado, a coluna "Saída" mostra o comando que rodou e o que ele
@@ -431,7 +434,65 @@ seguindo o do vídeo. `FLIP=false` porque esse vídeo já foi salvo espelhado.
 
 Se ele marcar o braço errado, troque `FLIP=false`/`true` ou use `ARM=left`.
 
-### 8. Captura de dados (a ferramenta do `Capture_EMG_Data`)
+### 8. Movimento real: o braço repete um cotovelo humano
+
+O braço do Gazebo repete o ângulo do cotovelo de uma pessoa, gravado com
+captura de movimento (Vicon) no dataset público **Reach&Grasp**
+([Di Domenico et al., *Scientific Data* 12, 233, 2025](https://doi.org/10.1038/s41597-025-04552-5);
+dados em [doi:10.48557/L6OWMM](https://doi.org/10.48557/L6OWMM), licença
+CC BY 4.0). Não usa sEMG nem modelo. Mostra o gêmeo digital com o alvo que
+um modelo de regressão vai ter de prever (decisão D27).
+
+Primeiro baixe os movimentos, uma vez (só a cinemática, ~2 MB por movimento):
+
+```bash
+# sujeito 1, as seis tarefas que mexem o cotovelo (~12 MB)
+./scripts/fetch_reach_grasp.py --subjects 1 --tasks FroRea ReaCyl ReaSph Pour Screw EatFruit
+# ou tudo: 10 sujeitos x 16 tarefas (~280 MB)
+./scripts/fetch_reach_grasp.py
+```
+
+Depois:
+
+```bash
+docker compose -f docker/compose.yaml -f $JANELA up movimento
+# outro sujeito, outra tarefa, metade da velocidade:
+SUBJECT=4 TASK=EatFruit SPEED=0.5 docker compose -f docker/compose.yaml -f $JANELA up movimento
+```
+
+No painel é o cartão **Movimento real** (baixe antes em Manutenção → Dados →
+**Movimentos reais**); no menu, as opções 13 (baixar) e 14 (rodar).
+
+| Tarefa (`TASK`) | O que a pessoa faz | Excursão do cotovelo (mediana) |
+|---|---|---|
+| `EatFruit` | alcança uma bola e leva à boca | 96° |
+| `FroRea` | alcança à frente | 72° |
+| `ReaSph` | alcança uma bola | 60° |
+| `ReaCyl` (padrão) | alcança um copo | 53° |
+| `Pour` | pega o copo e despeja | 51° |
+| `Screw` | rosqueia uma tampa | 31° |
+
+As outras 10 tarefas são de mão e punho: o cotovelo quase não se mexe. As
+excursões são as medidas no contrato de dados do `semg-digital-twins`
+(`docs/DATA_CONTRACT_REACH_GRASP.md`).
+
+**O que observar:** ao alcançar, o braço do Gazebo deve **esticar** (o ângulo
+cai); ao levar a mão à boca, **dobrar**. Se acontecer o contrário, a convenção
+angular assumida (0° = estendido, a mesma do simulador) está errada: anote e
+avise, porque o contrato de dados ainda a marca como não confirmada.
+
+**O braço fica atrás da pessoa.** O controlador é o do mestrado (P, kp = 1 no
+cotovelo), com cerca de 1 s de constante de tempo. Medido no sujeito 1: o
+braço segue a forma do movimento com correlação 0,98, mas **0,7 a 0,8 s
+atrasado**, e corta os picos. Em `ReaCyl` chega a 83 % da excursão; em
+`EatFruit`, que é mais rápido, a 67 % (achado 29). O ângulo gravado sai no
+tópico `/reach_grasp/elbow_deg`, e `scripts/check_movement.py` mede atraso,
+correlação e erro contra `/joint_states`.
+
+Nas poucas amostras em que o Vicon perdeu o cotovelo, o alvo anterior é
+mantido; o log diz quantas foram.
+
+### 9. Captura de dados (a ferramenta do `Capture_EMG_Data`)
 
 Precisa de uma fonte de sEMG. Para ver o fluxo funcionando sem hardware (vídeo
 do mestrado + sEMG reproduzido):
@@ -455,7 +516,7 @@ Com o Myo (`EMG=myo` é o padrão), acrescente `-f docker/compose.myo.yaml`. No
 Windows, o dongle precisa antes ser ligado ao WSL com
 [usbipd](https://learn.microsoft.com/windows/wsl/connect-usb).
 
-### 9. Encerrar
+### 10. Encerrar
 
 Qualquer uma destas formas encerra tudo, Gazebo inclusive:
 

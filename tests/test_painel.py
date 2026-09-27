@@ -247,12 +247,20 @@ def test_catalogue_lists_what_exists(tmp_path):
         (tmp_path / "data" / "filtros" / nome).write_text("")
     for nome in ("knn_a_latest.joblib", "knn_a_2026-09-26.joblib"):
         (tmp_path / "models" / nome).write_text("")
+    motion = tmp_path / "data" / "reach_grasp" / "sub-04" / "motion"
+    motion.mkdir(parents=True)
+    for nome in (
+        "sub-04_task-Pour_acq-vicon_motion.csv",
+        "sub-04_task-Pour_acq-vicon_channels.tsv",
+    ):
+        (motion / nome).write_text("")
     assert painel.opcoes(tmp_path) == {
         "csvs": ["gestos.csv"],
         "videos": ["test_2_05.avi"],
         "modelos": ["knn_a_latest.joblib"],
         "analises": ["x_mav_temporal"],
         "filtros": ["passa_altas.csv"],
+        "movimentos": ["04/Pour"],
         "gravacoes": {"gestos.csv": {"canais": 4, "taxa": 1000}},
     }
 
@@ -507,3 +515,42 @@ def test_a_panel_older_than_its_file_only_stops_things(tmp_path, monkeypatch):
     with pytest.raises(painel.Recusado, match="atualizado depois de aberto"):
         p.iniciar("oi", {})
     _esperar(p.iniciar("parar_oi", {}))
+
+
+def _com_movimentos(*movimentos):
+    return {"movimentos": list(movimentos)}
+
+
+def test_movement_replays_the_chosen_trial_with_the_window():
+    amb = painel.Ambiente(wsl=True, janela="docker/compose.wsl.yaml", desktop=True)
+    plano = painel.plano_movimento({}, amb, _com_movimentos("01/Pour", "01/ReaCyl"))
+    assert plano.alvo == "movimento"
+    assert str(plano.passos[0]) == (
+        "SUBJECT=1 TASK=ReaCyl SPEED=1 LOOP=true GUI=true "
+        "docker compose -f docker/compose.yaml -f docker/compose.wsl.yaml up -d movimento"
+    )
+    p = {"movimento": "01/Pour", "velocidade": "0,5", "repetir": False, "pagina": True}
+    plano = painel.plano_movimento(p, amb, _com_movimentos("01/Pour"))
+    assert str(plano.passos[0]).startswith("SUBJECT=1 TASK=Pour SPEED=0.5 LOOP=false GUI=true")
+    assert str(plano.passos[0]).endswith(
+        "-f docker/compose.wsl.yaml -f docker/compose.desktop.yaml up -d movimento web"
+    )
+
+
+def test_movement_needs_the_data_and_a_listed_trial():
+    amb = painel.Ambiente(wsl=False, janela=None, desktop=False)
+    with pytest.raises(painel.Recusado, match="Movimentos reais"):
+        painel.plano_movimento({}, amb, _com_movimentos())
+    with pytest.raises(painel.Recusado, match="movimento"):
+        painel.plano_movimento({"movimento": "11/Pour"}, amb, _com_movimentos("01/Pour"))
+    with pytest.raises(painel.Recusado, match="velocidade"):
+        painel.plano_movimento({"velocidade": "9"}, amb, _com_movimentos("01/Pour"))
+
+
+def test_movement_download_is_the_menu_default():
+    construir, precisa_docker = painel.ACOES["dados_movimento"]
+    plano = construir({}, None, {})
+    assert not precisa_docker
+    assert str(plano.passos[0]) == (
+        "scripts/fetch_reach_grasp.py --subjects 1 --tasks FroRea ReaCyl ReaSph Pour Screw EatFruit"
+    )

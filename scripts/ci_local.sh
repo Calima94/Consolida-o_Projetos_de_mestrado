@@ -104,6 +104,11 @@ if [ "$QUICK" = 0 ]; then
     ros2 run mestrado_emg analyze_legacy /data/6_10_20220.csv --out /tmp/analise
   step ponta_a_ponta "ponta a ponta: sEMG -> classificador -> braço" end_to_end integration_test.sh
   step captura "ponta a ponta: captura e modo espelho" end_to_end capture_test.sh
+  if [ ! -f data/reach_grasp/sub-01/motion/sub-01_task-ReaCyl_acq-vicon_motion.csv ]; then
+    step dados_movimento "baixar um movimento real (Reach&Grasp)" \
+      ./scripts/fetch_reach_grasp.py --subjects 1 --tasks ReaCyl
+  fi
+  step movimento "ponta a ponta: movimento real no braço" end_to_end movement_test.sh
 fi
 
 failed=0

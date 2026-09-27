@@ -39,4 +39,5 @@ services:
   captura: *wslg
   espelho: *wslg
   braco: *wslg
+  movimento: *wslg
   shell: *wslg
