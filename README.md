@@ -23,7 +23,7 @@ sEMG (Myo, ou CSV gravado) ──► /emg/raw ──► emg_classifier ──►
 
 | | Situação |
 |---|---|
-| Pipeline de features (filtros, wavelet, MAV/RMS) | ✅ Idêntico ao código original (diferença < 1e-9, testado contra cópia literal). Wavelet-mãe, níveis, camadas e janela voltaram a ser escolhas, com um modo em que a escolha de camadas funciona de fato (D23) |
+| Pipeline de features (filtros, wavelet, MAV/RMS) | ✅ Idêntico ao código original (diferença < 1e-9, testado contra cópia literal). Wavelet-mãe, níveis, camadas e janela voltaram a ser escolhas, com um modo em que a escolha de camadas funciona de fato (D23), e também a taxa de amostragem e os filtros IIR (D24) |
 | Treino dos 5 classificadores | ✅ Reproduz exatamente os scores históricos (0,9444 nos cinco) |
 | Braço no Gazebo Jetty | ✅ Massas, geometria e juntas do mestrado; controle P com os kp originais (resposta de 1ª ordem medida: 63 % em 1 s com kp = 1) |
 | Fluxo completo sem hardware (CSV → classificador → braço) | ✅ Teste de ponta a ponta no CI |
@@ -34,6 +34,7 @@ sEMG (Myo, ou CSV gravado) ──► /emg/raw ──► emg_classifier ──►
 | Painel (`scripts/painel.py`): os comandos como botões no navegador | ✅ Todas as ações do menu, mais testes e "parar tudo"; uma simulação por vez; saída ao vivo. Testado no Windows 11 + WSL2 + Docker Desktop |
 | Interface web: o braço pelo navegador (`web/`) | ✅ Setas e deslizadores, vista lateral 2D, comando × real, parada de emergência no controlador. Testada no Windows 11 + WSL2 + Docker Desktop contra o Gazebo sem janela. ⚠️ Linux e celular ainda não testados |
 | Análise dos resultados (a aba "Results" da tela de treino) | ✅ Figuras em PNG, validação cruzada e referência `amplitude`; conclusões em [`docs/ANALISE_RESULTADOS.md`](docs/ANALISE_RESULTADOS.md) |
+| Dados de gestos da disciplina (8 participantes, 4 canais, 1 kHz) | ✅ Download conferido, parâmetros da disciplina num clique e validação por participante; resultados em [`docs/ANALISE_GESTOS.md`](docs/ANALISE_GESTOS.md) (D25) |
 | Encerrar com Ctrl+C / `docker compose stop` / `scripts/stop.sh` | ✅ Sem processos sobrando (medido) |
 | Driver do Myo | ⚠️ Portado e com testes do protocolo, **mas nunca rodou com um Myo de verdade** |
 | Janelas (Gazebo e câmera) | ✅ Windows 11 + WSL2 + Docker Desktop: as janelas do Gazebo e da câmera abrem e o braço se move (renderização por software; modo espelho com o vídeo do mestrado). ⚠️ Linux com monitor só testado em display virtual (Xvfb); webcam não testada |
@@ -205,6 +206,13 @@ e cada categoria é um único bloco de tempo da gravação. Ela tem escopo defin
 e começa pelo contexto: avalia esse conjunto de demonstração, não a
 dissertação, cuja contribuição é a plataforma, e não a acurácia.
 
+Nos **dados de gestos da disciplina** que veio depois (8 participantes, 5
+gestos), o sorteio da disciplina dá de 85 % (LDA) a 95 % (kNN). Treinando com
+sete pessoas e testando na oitava, dá de 83 % a 89 %. O relatório da disciplina
+tinha 100 % em quatro classificadores porque o app, com 4 canais, pegava o
+rótulo como entrada. Com os 8 canais do mestrado isso não acontece
+([`docs/ANALISE_GESTOS.md`](docs/ANALISE_GESTOS.md), achados 26 e 27).
+
 ## Estrutura
 
 ```
@@ -215,9 +223,9 @@ ros2_ws/src/
   mestrado_description/     modelo SDF do braço + mundo (Gazebo Jetty)
   mestrado_bringup/         launch files (sim, mestrado, captura, espelho, web), ponte, gz_sim_group
 web/                        interface web: uma página, sem dependências nem etapa de build
-scripts/                    painel.py (+ painel.html), menu.sh, dados, check_docker.sh, stop.sh, ci_local.sh, testes de ponta a ponta
+scripts/                    painel.py (+ painel.html), menu.sh, dados (mestrado e gestos), check_docker.sh, stop.sh, ci_local.sh, testes de ponta a ponta
 tests/                      pytest (+ legacy_reference: cópias literais do código original)
-docs/                       como rodar, inventário do mestrado, decisões do porte e análise dos resultados
+docs/                       como rodar, inventário do mestrado, decisões do porte e análises (mestrado e gestos)
 data/, models/              fora do git (baixados / gerados)
 ```
 
