@@ -4,295 +4,533 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Painel do projeto</title>
-<meta name="description" content="Os comandos do projeto do mestrado como botões: braço, sistema completo, espelho, captura, treino, análise e testes.">
+<meta name="description" content="Os comandos do simulador de prótese do mestrado como botões: braço, sistema completo, espelho, captura, treino, análise e testes.">
 <!--
-  Served by scripts/painel.py, which runs the actions. One file, no dependency.
+  Served by scripts/painel.py, which runs the actions. One file; the only
+  external request is the two typefaces, with system fallbacks when offline.
   Every POST carries X-Painel: 1 (the server refuses it otherwise).
+
+  Palette taken from the project itself: the accent is the blue of the Gazebo
+  pedestal (braco.sdf), amber is the colour the capture tool paints the arm
+  while it records.
 -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@100..125,400..700&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
 :root {
-  --bg: #f4f3ef; --surface: #ffffff; --ink: #1c1c1e; --muted: #6c6b70; --line: #e3e1db;
-  --accent: #2563eb; --accent-ink: #ffffff; --ok: #178a43; --warn: #b86a00; --bad: #d42a1d;
-  --code-bg: #f7f6f2; --shadow: 0 1px 2px rgb(0 0 0 / 0.05), 0 4px 16px rgb(0 0 0 / 0.04);
+  color-scheme: light;
+  --bg: #eceff4;
+  --surface: #ffffff;
+  --surface-2: #f5f7fa;
+  --ink: #131923;
+  --ink-2: #3a4454;
+  --muted: #677285;
+  --line: #d6dce5;
+  --line-strong: #bcc5d2;
+  --accent: #2f55b0;
+  --accent-ink: #ffffff;
+  --accent-soft: #e2e9f8;
+  --amber: #b06d10;
+  --amber-soft: #fbefdc;
+  --ok: #1d8049;
+  --ok-soft: #dff2e6;
+  --bad: #c2362b;
+  --bad-soft: #fbe5e2;
+  --lamp-off: #c3cad5;
+  --term-bg: #0e131a;
+  --term-bar: #151c26;
+  --term-line: #232d3b;
+  --term-ink: #d4dbe6;
+  --term-muted: #6f7b8d;
+  --term-cmd: #93b0ff;
+  --shadow: 0 1px 1px rgb(19 25 35 / 0.04), 0 6px 20px -8px rgb(19 25 35 / 0.12);
+  --display: "Archivo", "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  --body: "Archivo", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", "Cascadia Mono", Consolas, ui-monospace, monospace;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #111113; --surface: #1b1b1e; --ink: #ececef; --muted: #9b9aa2; --line: #2d2d32;
-    --accent: #5b8ff9; --accent-ink: #0b0b0c; --ok: #3ccf77; --warn: #f0a638; --bad: #f04a3c;
-    --code-bg: #141416; --shadow: none;
+    color-scheme: dark;
+    --bg: #0f141a;
+    --surface: #161d26;
+    --surface-2: #1b232e;
+    --ink: #e7ecf3;
+    --ink-2: #c3ccd9;
+    --muted: #8a96a8;
+    --line: #243040;
+    --line-strong: #33415a;
+    --accent: #7f9ff0;
+    --accent-ink: #0c1220;
+    --accent-soft: #1d2945;
+    --amber: #f0b050;
+    --amber-soft: #33270f;
+    --ok: #4cc47f;
+    --ok-soft: #13301f;
+    --bad: #f0685c;
+    --bad-soft: #3a1714;
+    --lamp-off: #3a4658;
+    --term-bg: #0a0e13;
+    --term-bar: #111821;
+    --term-line: #1f2935;
+    --shadow: 0 1px 0 rgb(255 255 255 / 0.03) inset, 0 8px 24px -12px rgb(0 0 0 / 0.6);
   }
 }
 :root[data-theme="dark"] {
-  --bg: #111113; --surface: #1b1b1e; --ink: #ececef; --muted: #9b9aa2; --line: #2d2d32;
-  --accent: #5b8ff9; --accent-ink: #0b0b0c; --ok: #3ccf77; --warn: #f0a638; --bad: #f04a3c;
-  --code-bg: #141416; --shadow: none;
+  color-scheme: dark;
+  --bg: #0f141a;
+  --surface: #161d26;
+  --surface-2: #1b232e;
+  --ink: #e7ecf3;
+  --ink-2: #c3ccd9;
+  --muted: #8a96a8;
+  --line: #243040;
+  --line-strong: #33415a;
+  --accent: #7f9ff0;
+  --accent-ink: #0c1220;
+  --accent-soft: #1d2945;
+  --amber: #f0b050;
+  --amber-soft: #33270f;
+  --ok: #4cc47f;
+  --ok-soft: #13301f;
+  --bad: #f0685c;
+  --bad-soft: #3a1714;
+  --lamp-off: #3a4658;
+  --term-bg: #0a0e13;
+  --term-bar: #111821;
+  --term-line: #1f2935;
+  --shadow: 0 1px 0 rgb(255 255 255 / 0.03) inset, 0 8px 24px -12px rgb(0 0 0 / 0.6);
 }
 
 * { box-sizing: border-box; }
 html { -webkit-text-size-adjust: 100%; }
-body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 400 14.5px/1.5 var(--body); font-stretch: 100%;
+  -webkit-font-smoothing: antialiased;
+}
 button, select, input { font: inherit; color: inherit; }
 a { color: var(--accent); }
-
-header {
-  position: sticky; top: 0; z-index: 10;
-  display: flex; align-items: center; flex-wrap: wrap; gap: 10px 16px;
-  padding: 10px 16px; padding-top: max(10px, env(safe-area-inset-top));
-  background: color-mix(in srgb, var(--bg) 90%, transparent); backdrop-filter: blur(8px);
-  border-bottom: 1px solid var(--line);
-}
-.titles { flex: 1; min-width: 200px; }
-h1 { font-size: 17px; margin: 0; font-weight: 650; letter-spacing: -0.01em; }
-.sub { color: var(--muted); font-size: 13px; }
-.docker { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
-.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
-.docker[data-s="ok"] .dot { background: var(--ok); }
-.docker[data-s="off"] .dot { background: var(--bad); }
-
-.btn {
-  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-  min-height: 40px; padding: 0 14px; border-radius: 10px;
-  border: 1px solid var(--line); background: var(--surface); cursor: pointer;
-  text-decoration: none; white-space: nowrap;
-}
-.btn:hover:not(:disabled) { border-color: color-mix(in srgb, var(--ink) 30%, var(--line)); }
-.btn:disabled, a.btn[aria-disabled="true"] { opacity: 0.45; cursor: not-allowed; }
-a.btn[aria-disabled="true"] { pointer-events: none; }
-.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
-.btn.stop { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 45%, var(--line)); }
-.btn.small { min-height: 32px; padding: 0 10px; font-size: 13px; }
-.btn:focus-visible, select:focus-visible, input:focus-visible, summary:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
-
-.faixa { max-width: 1320px; margin: 12px auto 0; padding: 0 16px; }
-.aviso { padding: 10px 14px; border-radius: 10px; font-size: 14px; }
-.aviso.rodando { background: color-mix(in srgb, var(--ok) 10%, var(--surface)); border: 1px solid color-mix(in srgb, var(--ok) 30%, transparent); }
-.aviso.erro { background: color-mix(in srgb, var(--bad) 10%, var(--surface)); border: 1px solid color-mix(in srgb, var(--bad) 35%, transparent); color: var(--bad); }
-
-main {
-  display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr);
-  max-width: 1320px; margin: 0 auto; padding: 16px;
-}
-@media (min-width: 1100px) {
-  main { grid-template-columns: minmax(0, 1.55fr) minmax(360px, 1fr); align-items: start; }
-  .saida { position: sticky; top: 76px; }
-}
-h2 { font-size: 13px; font-weight: 650; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 8px 2px 10px; }
-h2:first-child { margin-top: 0; }
-.grade { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); align-items: start; margin-bottom: 18px; }
-
-.card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); }
-.acao { padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
-.card-head { display: flex; align-items: baseline; gap: 10px; }
-h3 { margin: 0; font-size: 16px; font-weight: 650; flex: 1; }
-.badge { font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
-.badge[data-s="rodando"] { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 45%, transparent); }
-.badge[data-s="iniciando"] { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 45%, transparent); }
-.badge[data-s="falhou"] { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 45%, transparent); }
-.badge[data-s="ok"] { color: var(--ok); }
-.desc { margin: 0; color: var(--muted); font-size: 14px; }
-.botoes { display: flex; flex-wrap: wrap; gap: 8px; }
-.msg { font-size: 13px; color: var(--bad); }
-.msg:empty { display: none; }
-.dica { font-size: 13px; color: var(--muted); }
-.dica:empty { display: none; }
-
-details.opcoes { border-top: 1px solid var(--line); padding-top: 8px; }
-summary { cursor: pointer; color: var(--muted); font-size: 13px; width: fit-content; }
-.campos { display: grid; gap: 10px; margin-top: 10px; }
-.campo { display: grid; gap: 3px; font-size: 14px; }
-.campo > span:first-child { color: var(--muted); font-size: 12.5px; }
-.campo select, .campo input[type=number], .campo input[type=text] {
-  width: 100%; min-height: 36px; padding: 4px 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg);
-}
-.check { display: flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; }
-.check input { width: 18px; height: 18px; accent-color: var(--accent); }
-.par { display: flex; gap: 8px; }
+code { font-family: var(--mono); font-size: 0.92em; }
+svg { flex: none; }
 [hidden] { display: none !important; }
 
-.manut { padding: 14px 16px; display: grid; gap: 12px; }
-.manut .linha { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.manut .rot { color: var(--muted); font-size: 13px; min-width: 76px; }
+/* ------------------------------------------------------------------ frame */
+.moldura { max-width: 1380px; margin: 0 auto; padding-inline: 24px; }
+@media (max-width: 560px) { .moldura { padding-inline: 16px; } }
 
-.saida { display: flex; flex-direction: column; min-height: 320px; max-height: calc(100vh - 100px); }
-.saida-head { display: flex; align-items: center; gap: 10px; padding: 12px 14px 8px; }
-.saida-head h2 { margin: 0; flex: none; }
-.saida-head select { flex: 1; min-width: 0; min-height: 34px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); padding: 2px 6px; }
-.saida-status { padding: 0 14px 8px; font-size: 13px; color: var(--muted); }
+header.topo {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20;
+  background: color-mix(in srgb, var(--bg) 86%, transparent);
+  backdrop-filter: saturate(1.4) blur(10px);
+  border-bottom: 1px solid var(--line);
+}
+.topo .moldura { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 20px; padding-block: 12px; }
+.marca { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 240px; }
+.marca-sinal {
+  width: 42px; height: 42px; border-radius: 11px; display: grid; place-items: center;
+  background: var(--accent); color: var(--accent-ink);
+}
+.eyebrow { font-size: 11.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+h1 {
+  margin: 0; font-family: var(--display); font-stretch: 118%; font-weight: 650;
+  font-size: 21px; letter-spacing: -0.01em; line-height: 1.15; text-wrap: balance;
+}
+.docker {
+  display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-2);
+  padding: 6px 12px 6px 10px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------------ lamps */
+.lamp { width: 9px; height: 9px; border-radius: 50%; background: var(--lamp-off); flex: none; }
+[data-s="ok"] > .lamp, [data-s="rodando"] > .lamp, .lamp.on { background: var(--ok); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 22%, transparent); }
+[data-s="off"] > .lamp, [data-s="falhou"] > .lamp { background: var(--bad); }
+[data-s="iniciando"] > .lamp { background: var(--amber); animation: pulsa 1.1s ease-in-out infinite; }
+@keyframes pulsa { 50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--amber) 25%, transparent); } }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+/* ------------------------------------------------------------------ buttons */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  min-height: 38px; padding: 0 14px; border-radius: 9px;
+  border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink);
+  font-weight: 550; font-size: 14px; cursor: pointer; text-decoration: none; white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s, transform 0.05s;
+}
+.btn:hover:not(:disabled) { border-color: var(--ink-2); }
+.btn:active:not(:disabled) { transform: translateY(1px); }
+.btn:disabled, a.btn[aria-disabled="true"] { opacity: 0.42; cursor: not-allowed; }
+a.btn[aria-disabled="true"] { pointer-events: none; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.primary:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 88%, var(--ink)); border-color: transparent; }
+.btn.stop { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 40%, var(--line)); background: transparent; }
+.btn.stop:hover:not(:disabled) { background: var(--bad-soft); border-color: var(--bad); }
+.btn.stop.confirmar { background: var(--bad); color: #fff; border-color: var(--bad); }
+.btn.quiet { background: transparent; }
+.btn.small { min-height: 32px; padding: 0 11px; font-size: 13px; }
+.btn:focus-visible, select:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ------------------------------------------------------------------ system strip */
+.sistema {
+  display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+  margin-top: 20px; padding: 14px 18px; border-radius: 14px;
+  background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow);
+}
+.cadeia { display: flex; align-items: center; gap: 6px; flex: 1 1 560px; min-width: 0; overflow-x: auto; scrollbar-width: thin; }
+.estacao { display: grid; grid-template-columns: auto auto; column-gap: 8px; align-items: center; padding: 4px 6px; flex: none; }
+.estacao b { font-weight: 600; font-size: 13.5px; color: var(--muted); transition: color 0.2s; }
+.estacao small { grid-column: 2; font-family: var(--mono); font-size: 11px; color: var(--muted); opacity: 0.8; }
+.estacao.on b { color: var(--ink); }
+.seta { color: var(--line-strong); font-size: 15px; }
+.resumo { font-size: 13px; color: var(--ink-2); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.resumo strong { font-weight: 600; }
+
+/* ------------------------------------------------------------------ layout */
+main.moldura { display: grid; gap: 28px; grid-template-columns: minmax(0, 1fr); padding-block: 8px 40px; }
+@media (min-width: 1140px) {
+  main.moldura { grid-template-columns: minmax(0, 1fr) minmax(360px, 0.6fr); align-items: start; }
+  .saida { position: sticky; top: 92px; height: calc(100vh - 112px); }
+}
+.secao { display: grid; gap: 12px; }
+.secao + .secao { margin-top: 26px; }
+.secao-titulo { display: flex; align-items: baseline; gap: 12px; }
+h2 { margin: 0; font-family: var(--display); font-stretch: 112%; font-size: 13px; font-weight: 650; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink-2); }
+.secao-titulo p { margin: 0; font-size: 13px; color: var(--muted); }
+
+.glyph {
+  width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center;
+  background: var(--accent-soft); color: var(--accent);
+}
+.estado {
+  display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--muted); white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.estado[data-s="rodando"] { color: var(--ok); }
+.estado[data-s="iniciando"] { color: var(--amber); }
+.estado[data-s="falhou"] { color: var(--bad); }
+.estado[data-s="ok"] { color: var(--ok); }
+.estado[data-s="ok"] > .lamp { box-shadow: none; }
+
+h3 { margin: 0; font-family: var(--display); font-stretch: 108%; font-size: 16.5px; font-weight: 620; letter-spacing: -0.005em; line-height: 1.25; }
+.desc { margin: 0; color: var(--ink-2); font-size: 14px; max-width: 62ch; }
+.spec { margin: 0; font-family: var(--mono); font-size: 11.5px; color: var(--muted); letter-spacing: 0.01em; }
+.acoes { display: flex; flex-wrap: wrap; gap: 8px; }
+.dica { margin: 0; font-size: 13px; color: var(--amber); }
+.dica:empty, .msg:empty { display: none; }
+.msg { margin: 0; font-size: 13px; color: var(--bad); padding: 8px 10px; border-radius: 8px; background: var(--bad-soft); }
+
+/* simulation cards */
+/* three across, or one per row: never two plus one left alone */
+.secao-sims { container-type: inline-size; }
+.sims { display: grid; gap: 14px; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; }
+@container (max-width: 700px) { .sims { grid-template-columns: minmax(0, 1fr); } }
+.sim {
+  display: flex; flex-direction: column; gap: 10px; padding: 16px 16px 14px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow);
+  transition: border-color 0.2s;
+}
+.sim.ativo { border-color: color-mix(in srgb, var(--ok) 55%, var(--line)); }
+.sim-topo { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2px; }
+.sim .acoes { margin-top: 4px; }
+
+/* data rows */
+.lista { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); }
+.linha {
+  display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; gap: 6px 14px; align-items: start;
+  padding: 16px;
+}
+.linha + .linha { border-top: 1px solid var(--line); }
+.linha .corpo { display: grid; gap: 6px; min-width: 0; }
+.linha .cabeca { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.linha .acoes { justify-content: flex-end; }
+@media (max-width: 640px) {
+  .linha { grid-template-columns: 40px minmax(0, 1fr); }
+  .linha .acoes { grid-column: 1 / -1; justify-content: flex-start; }
+}
+
+/* options */
+details.opcoes { margin-top: 2px; }
+summary {
+  cursor: pointer; width: fit-content; list-style: none; display: inline-flex; align-items: center; gap: 6px;
+  font-size: 13px; color: var(--muted); padding: 2px 0;
+}
+summary::-webkit-details-marker { display: none; }
+summary::before { content: ""; width: 6px; height: 6px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(-45deg); transition: transform 0.15s; margin-right: 2px; }
+details[open] > summary::before { transform: rotate(45deg); }
+summary:hover { color: var(--ink); }
+.campos { display: grid; gap: 10px; margin-top: 10px; padding: 12px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--line); }
+.lista .campos { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+.campo { display: grid; gap: 4px; font-size: 14px; min-width: 0; }
+.campo > span:first-child { color: var(--muted); font-size: 12px; letter-spacing: 0.02em; }
+.campo select, .campo input[type=number] {
+  width: 100%; min-height: 36px; padding: 4px 10px; border-radius: 8px;
+  border: 1px solid var(--line-strong); background: var(--surface); font-variant-numeric: tabular-nums;
+}
+.check { display: flex; align-items: flex-start; gap: 9px; font-size: 14px; cursor: pointer; line-height: 1.35; }
+.check input { width: 17px; height: 17px; margin: 1px 0 0; accent-color: var(--accent); flex: none; }
+.par { display: flex; gap: 8px; }
+.lista .campos .check { grid-column: 1 / -1; }
+
+/* maintenance toolbar */
+.ferramentas {
+  display: flex; flex-wrap: wrap; gap: 10px 22px; align-items: center;
+  padding: 12px 16px; border-radius: 14px; background: var(--surface-2); border: 1px solid var(--line);
+}
+.grupo { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.grupo > span { font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin-right: 2px; }
+.ferramentas .msg { flex-basis: 100%; }
+
+/* ------------------------------------------------------------------ terminal */
+.saida {
+  display: flex; flex-direction: column; min-height: 360px; overflow: hidden;
+  background: var(--term-bg); color: var(--term-ink); border: 1px solid var(--term-line); border-radius: 14px;
+  box-shadow: var(--shadow);
+}
+.saida-barra { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--term-bar); border-bottom: 1px solid var(--term-line); }
+.saida-barra h2 { color: var(--term-muted); font-size: 12px; }
+.saida-barra select {
+  flex: 1; min-width: 0; min-height: 32px; padding: 2px 8px; border-radius: 7px;
+  background: var(--term-bg); color: var(--term-ink); border: 1px solid var(--term-line); color-scheme: dark;
+}
+.saida-status { display: flex; align-items: center; gap: 8px; padding: 8px 14px; font-size: 12.5px; color: var(--term-muted); border-bottom: 1px solid var(--term-line); min-height: 36px; }
+.codigo { font-family: var(--mono); font-size: 11.5px; padding: 1px 7px; border-radius: 5px; border: 1px solid currentColor; }
+.codigo.ok { color: #58cf8a; }
+.codigo.erro { color: #ff8074; }
 pre#log {
-  flex: 1; margin: 0 14px; padding: 10px 12px; min-height: 220px; overflow: auto;
-  background: var(--code-bg); border: 1px solid var(--line); border-radius: 10px;
-  font: 12.5px/1.45 ui-monospace, "Cascadia Mono", Consolas, monospace; white-space: pre-wrap; word-break: break-word;
+  flex: 1; margin: 0; padding: 12px 14px 16px; overflow: auto;
+  font: 12.5px/1.55 var(--mono); white-space: pre-wrap; word-break: break-word;
 }
-pre#log .cmd { color: var(--accent); }
-.saida-foot { display: flex; align-items: center; gap: 12px; padding: 10px 14px 12px; font-size: 13px; color: var(--muted); }
-.saida-foot .check { font-size: 13px; margin-left: auto; }
-
-@media (max-width: 560px) {
-  .grade { grid-template-columns: minmax(0, 1fr); }
-}
+pre#log .cmd { color: var(--term-cmd); }
+pre#log .cmd::before { content: ""; }
+pre#log .vazio { color: var(--term-muted); }
+.saida-pe { display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-top: 1px solid var(--term-line); font-size: 12.5px; color: var(--term-muted); }
+.saida-pe .check { margin-left: auto; font-size: 12.5px; }
+.saida-pe .btn.stop { border-color: #5a2a26; color: #ff8074; }
+.saida-pe .btn.stop:hover { background: #2a1412; }
 </style>
 </head>
 <body>
 
-<header>
-  <div class="titles">
-    <h1>Painel do projeto</h1>
-    <div class="sub">Consolidação do mestrado · sEMG → classificador → braço</div>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-braco" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20.5h7"/><path d="M6 20.5v-4h3v4"/><circle cx="7.5" cy="15" r="1.4"/><path d="M8.5 14 13 9.5"/><circle cx="14" cy="8.5" r="1.4"/><path d="M15.3 8 19 6.5"/><path d="M18.4 4.8 20 7.2l-2.5 1"/></g></symbol>
+    <symbol id="i-semg" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" d="M2 12h3.5l1.4-3.5 1.8 8 1.9-12 2 13 1.6-8 1.2 3.5 1.1-1.5H22"/></symbol>
+    <symbol id="i-espelho" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5h3l1.5-2.2h5L14 8.5h3a1.5 1.5 0 0 1 1.5 1.5v7A1.5 1.5 0 0 1 17 18.5H3.5A1.5 1.5 0 0 1 2 17v-7a1.5 1.5 0 0 1 1-1.5z"/><circle cx="10.2" cy="13.3" r="3"/><path d="M20.5 9v8"/></g></symbol>
+    <symbol id="i-captura" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="12" r="3"/><path d="M11 12h1.5l1.2-3 1.6 6 1.5-8 1.5 7 1-2H22"/></g><circle cx="6" cy="12" r="1.3" fill="currentColor"/></symbol>
+    <symbol id="i-treino" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 20 20 4" stroke-dasharray="0.1 3.2"/><circle cx="6.5" cy="8" r="1.6"/><circle cx="9.5" cy="5.5" r="1.6"/><circle cx="5" cy="12.5" r="1.6"/></g><g fill="currentColor"><circle cx="17.5" cy="16" r="1.8"/><circle cx="14" cy="19" r="1.8"/><circle cx="19" cy="11.5" r="1.8"/></g></symbol>
+    <symbol id="i-analise" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 3.5v16.5h16.5"/><path d="M4 20c1.2-7 4.5-11.5 15.5-13"/><path d="M4 20 19.5 4.5" stroke-dasharray="1.5 2.5" opacity="0.55"/></g></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path fill="currentColor" d="M8 5.6v12.8a.8.8 0 0 0 1.2.7l10.3-6.4a.8.8 0 0 0 0-1.4L9.2 4.9A.8.8 0 0 0 8 5.6z"/></symbol>
+    <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/></symbol>
+    <symbol id="i-fora" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 5h5v5"/><path d="M19 5 10 14"/><path d="M17 14v4.5a1.5 1.5 0 0 1-1.5 1.5h-10A1.5 1.5 0 0 1 4 18.5v-10A1.5 1.5 0 0 1 5.5 7H10"/></g></symbol>
+    <symbol id="i-pasta" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M3 7.5A1.5 1.5 0 0 1 4.5 6h4.2l2 2.2h8.8A1.5 1.5 0 0 1 21 9.7v8.8a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z"/></symbol>
+  </defs>
+</svg>
+
+<header class="topo">
+  <div class="moldura">
+    <div class="marca">
+      <span class="marca-sinal" aria-hidden="true"><svg width="24" height="24"><use href="#i-braco"/></svg></span>
+      <div>
+        <div class="eyebrow">Simulador de prótese controlada por sEMG · UFABC</div>
+        <h1>Painel do projeto</h1>
+      </div>
+    </div>
+    <span class="docker" id="docker" data-s="?"><span class="lamp"></span><span id="dockerTxt">verificando o Docker…</span></span>
+    <button class="btn small" id="abrirDocker" data-acao="abrir_docker" hidden>Abrir o Docker Desktop</button>
+    <button class="btn stop" id="pararTudo" data-acao="parar_tudo" title="Para todos os containers do projeto (scripts/stop.sh)"><svg width="14" height="14"><use href="#i-stop"/></svg><span>Parar tudo</span></button>
   </div>
-  <div class="docker" id="docker" data-s="?"><span class="dot"></span><span id="dockerTxt">verificando o Docker…</span></div>
-  <button class="btn small" id="abrirDocker" data-acao="abrir_docker" hidden>Abrir o Docker Desktop</button>
-  <button class="btn stop" id="pararTudo" data-acao="parar_tudo" title="Para todos os containers do projeto (scripts/stop.sh)">Parar tudo</button>
 </header>
 
-<div class="faixa" id="faixaRodando" hidden><div class="aviso rodando" id="rodandoTxt"></div></div>
-<div class="faixa" id="faixaErro" hidden><div class="aviso erro" id="erroTxt"></div></div>
+<div class="moldura">
+  <section class="sistema" aria-label="O que está rodando">
+    <div class="cadeia" id="cadeia">
+      <span class="estacao" data-estacao="camera"><span class="lamp"></span><b>Câmera</b><small>MediaPipe</small></span>
+      <span class="seta" aria-hidden="true">·</span>
+      <span class="estacao" data-estacao="semg"><span class="lamp"></span><b>sEMG</b><small>200 Hz · 8 canais</small></span>
+      <span class="seta" aria-hidden="true">→</span>
+      <span class="estacao" data-estacao="classificador"><span class="lamp"></span><b>Classificador</b><small>features → modelo</small></span>
+      <span class="seta" aria-hidden="true">→</span>
+      <span class="estacao" data-estacao="braco"><span class="lamp"></span><b>Braço</b><small>Gazebo Jetty</small></span>
+      <span class="seta" aria-hidden="true">→</span>
+      <span class="estacao" data-estacao="pagina"><span class="lamp"></span><b>Página</b><small>:8080</small></span>
+    </div>
+    <div class="resumo" id="resumo">verificando…</div>
+  </section>
+</div>
 
-<main>
+<main class="moldura">
   <div>
-    <h2>Braço e simulação</h2>
-    <div class="grade">
-      <section class="card acao" data-card="braco">
-        <div class="card-head"><h3>Braço pelo navegador</h3><span class="badge" data-badge>parado</span></div>
-        <p class="desc">O braço no Gazebo, pilotado por uma página: setas, deslizadores, comando × real e parada de emergência.</p>
-        <div class="botoes">
-          <button class="btn primary" data-iniciar>Iniciar</button>
-          <a class="btn primary" data-abrir href="http://localhost:8080" target="_blank" rel="noopener" hidden>Abrir o controle ↗</a>
-          <button class="btn" data-ver hidden>Ver a saída</button>
-          <button class="btn stop" data-parar hidden>Parar</button>
-        </div>
-        <div class="dica" data-dica></div>
-        <details class="opcoes"><summary>Opções</summary><div class="campos">
-          <label class="check" data-precisa-janela><input type="checkbox" name="janela"> Mostrar também a janela do Gazebo</label>
-        </div></details>
-        <div class="msg" data-msg></div>
-      </section>
+    <section class="secao secao-sims">
+      <div class="secao-titulo"><h2>Simulação</h2><p>uma de cada vez</p></div>
+      <div class="sims">
+        <article class="sim" data-card="braco">
+          <div class="sim-topo"><span class="glyph" aria-hidden="true"><svg width="22" height="22"><use href="#i-braco"/></svg></span><span class="estado" data-badge><span class="lamp"></span><span data-txt>parado</span></span></div>
+          <h3>Braço pelo navegador</h3>
+          <p class="desc">Pilote o braço por uma página: setas, deslizadores, comando × real e parada de emergência.</p>
+          <p class="spec">Gazebo sem janela · página :8080</p>
+          <div class="acoes">
+            <button class="btn primary" data-iniciar><svg width="14" height="14"><use href="#i-play"/></svg>Iniciar</button>
+            <a class="btn primary" data-abrir href="http://localhost:8080" target="_blank" rel="noopener" hidden><span data-rotulo>Abrir o controle</span><svg width="15" height="15"><use href="#i-fora"/></svg></a>
+            <button class="btn quiet" data-ver hidden>Ver a saída</button>
+            <button class="btn stop" data-parar hidden><svg width="13" height="13"><use href="#i-stop"/></svg>Parar</button>
+          </div>
+          <p class="dica" data-dica></p>
+          <details class="opcoes"><summary>Opções</summary><div class="campos">
+            <label class="check" data-precisa-janela><input type="checkbox" name="janela" id="braco-janela"> Mostrar também a janela do Gazebo</label>
+          </div></details>
+          <p class="msg" data-msg></p>
+        </article>
 
-      <section class="card acao" data-card="sistema">
-        <div class="card-head"><h3>Sistema completo</h3><span class="badge" data-badge>parado</span></div>
-        <p class="desc">O mestrado de ponta a ponta: sEMG → classificador → braço. O braço alterna conforme o classificador reconhece cada trecho.</p>
-        <div class="botoes">
-          <button class="btn primary" data-iniciar>Iniciar</button>
-          <a class="btn primary" data-abrir href="http://localhost:8080" target="_blank" rel="noopener" hidden>Acompanhar pela página ↗</a>
-          <button class="btn" data-ver hidden>Ver a saída</button>
-          <button class="btn stop" data-parar hidden>Parar</button>
-        </div>
-        <div class="dica" data-dica></div>
-        <details class="opcoes"><summary>Opções</summary><div class="campos">
-          <label class="campo"><span>Fonte do sEMG</span><select name="fonte">
-            <option value="gravacao">Gravação do mestrado (sem hardware)</option>
-            <option value="myo">Faixa Myo (precisa do dongle)</option></select></label>
-          <label class="campo" data-so-gravacao><span>Gravação</span><select name="csv" data-lista="csvs"></select></label>
-          <label class="campo"><span>Classificador</span><select name="modelo" data-lista="modelos"></select></label>
-          <label class="check"><input type="checkbox" name="pagina" checked> Acompanhar pela página do braço</label>
-          <label class="check" data-precisa-janela><input type="checkbox" name="janela"> Janela do Gazebo</label>
-        </div></details>
-        <div class="msg" data-msg></div>
-      </section>
+        <article class="sim" data-card="sistema">
+          <div class="sim-topo"><span class="glyph" aria-hidden="true"><svg width="22" height="22"><use href="#i-semg"/></svg></span><span class="estado" data-badge><span class="lamp"></span><span data-txt>parado</span></span></div>
+          <h3>Sistema completo</h3>
+          <p class="desc">O mestrado de ponta a ponta: o braço dobra conforme o classificador reconhece cada trecho do sinal.</p>
+          <p class="spec">sEMG → MAV → classificador → cotovelo</p>
+          <div class="acoes">
+            <button class="btn primary" data-iniciar><svg width="14" height="14"><use href="#i-play"/></svg>Iniciar</button>
+            <a class="btn primary" data-abrir href="http://localhost:8080" target="_blank" rel="noopener" hidden><span data-rotulo>Acompanhar</span><svg width="15" height="15"><use href="#i-fora"/></svg></a>
+            <button class="btn quiet" data-ver hidden>Ver a saída</button>
+            <button class="btn stop" data-parar hidden><svg width="13" height="13"><use href="#i-stop"/></svg>Parar</button>
+          </div>
+          <p class="dica" data-dica></p>
+          <details class="opcoes"><summary>Opções</summary><div class="campos">
+            <label class="campo"><span>Fonte do sEMG</span><select name="fonte" id="sistema-fonte">
+              <option value="gravacao">Gravação do mestrado (sem hardware)</option>
+              <option value="myo">Faixa Myo (precisa do dongle)</option></select></label>
+            <label class="campo" data-so-gravacao><span>Gravação</span><select name="csv" id="sistema-csv" data-lista="csvs"></select></label>
+            <label class="campo"><span>Classificador</span><select name="modelo" id="sistema-modelo" data-lista="modelos"></select></label>
+            <label class="check"><input type="checkbox" name="pagina" id="sistema-pagina" checked> Acompanhar pela página do braço</label>
+            <label class="check" data-precisa-janela><input type="checkbox" name="janela" id="sistema-janela"> Janela do Gazebo</label>
+          </div></details>
+          <p class="msg" data-msg></p>
+        </article>
 
-      <section class="card acao" data-card="espelho">
-        <div class="card-head"><h3>Modo espelho</h3><span class="badge" data-badge>parado</span></div>
-        <p class="desc">O braço do Gazebo copia o cotovelo visto num vídeo, por visão computacional. Sem sEMG.</p>
-        <div class="botoes">
-          <button class="btn primary" data-iniciar>Iniciar</button>
-          <a class="btn primary" data-abrir href="http://localhost:8080" target="_blank" rel="noopener" hidden>Ver na página ↗</a>
-          <button class="btn" data-ver hidden>Ver a saída</button>
-          <button class="btn stop" data-parar hidden>Parar</button>
-        </div>
-        <div class="dica" data-dica></div>
-        <details class="opcoes"><summary>Opções</summary><div class="campos">
-          <label class="campo"><span>Vídeo</span><select name="video" data-lista="videos"></select></label>
-          <label class="check"><input type="checkbox" name="espelhar"> Espelhar a imagem (o vídeo do mestrado já está espelhado)</label>
-          <label class="campo"><span>Braço</span><select name="lado"><option value="right">direito</option><option value="left">esquerdo</option></select></label>
-          <label class="check" data-precisa-janela><input type="checkbox" name="janela" checked> Janelas da câmera e do Gazebo</label>
-          <label class="check"><input type="checkbox" name="pagina"> Ver também na página do braço</label>
-        </div></details>
-        <div class="msg" data-msg></div>
-      </section>
-    </div>
-
-    <h2>Dados e resultados</h2>
-    <div class="grade">
-      <section class="card acao" data-card="captura">
-        <div class="card-head"><h3>Captura de dados</h3><span class="badge" data-badge hidden></span></div>
-        <p class="desc">Grava sEMG rotulado pelo ângulo do cotovelo medido pela câmera. Termina sozinha quando as categorias enchem.</p>
-        <div class="botoes">
-          <button class="btn primary" data-iniciar>Iniciar a captura</button>
-          <button class="btn stop" data-parar hidden>Parar e salvar</button>
-        </div>
-        <div class="dica" data-dica></div>
-        <details class="opcoes"><summary>Opções</summary><div class="campos">
-          <label class="campo"><span>Fonte do sEMG</span><select name="fonte">
-            <option value="gravacao">Gravação do mestrado (demonstração)</option>
-            <option value="myo">Faixa Myo (precisa do dongle)</option></select></label>
-          <label class="campo" data-so-gravacao><span>Gravação</span><select name="csv" data-lista="csvs"></select></label>
-          <label class="campo"><span>Vídeo</span><select name="video" data-lista="videos"></select></label>
-          <label class="check"><input type="checkbox" name="espelhar"> Espelhar a imagem</label>
-          <label class="campo"><span>Braço</span><select name="lado"><option value="right">direito</option><option value="left">esquerdo</option></select></label>
-          <label class="campo"><span>Categorias</span><select name="categorias">
-            <option value="2">2 (170° e 90°)</option><option value="3">3 (+ 60°)</option><option value="4">4 (+ 45°)</option></select></label>
-          <label class="campo"><span>Tolerância (°)</span><input type="number" name="tolerancia" value="10" min="1" max="45" step="1"></label>
-          <label class="campo"><span>Amostras/categoria</span><input type="number" name="amostras" value="1000" min="10" max="100000" step="10"></label>
-          <label class="check"><input type="checkbox" name="continuo"> Gravar também fora das categorias (para regressão contínua)</label>
-          <label class="check" data-precisa-janela><input type="checkbox" name="janela" checked> Janela da câmera</label>
-        </div></details>
-        <div class="msg" data-msg></div>
-      </section>
-
-      <section class="card acao" data-card="treino">
-        <div class="card-head"><h3>Treinar os classificadores</h3><span class="badge" data-badge hidden></span></div>
-        <p class="desc">Os 5 classificadores do mestrado a partir de uma gravação. Os modelos vão para <code>models/</code>.</p>
-        <div class="botoes"><button class="btn primary" data-iniciar>Treinar</button></div>
-        <details class="opcoes"><summary>Opções</summary><div class="campos">
-          <label class="campo"><span>Gravação</span><select name="csv" data-lista="csvs"></select></label>
-          <label class="campo"><span>Feature</span><select name="feature"><option>mav</option><option>rms</option></select></label>
-          <label class="campo"><span>Divisão</span><select name="divisao"><option>temporal</option><option>legacy</option></select></label>
-          <label class="campo"><span>Semente</span><input type="number" name="semente" value="42" min="0" step="1"></label>
-        </div></details>
-        <div class="msg" data-msg></div>
-      </section>
-
-      <section class="card acao" data-card="analise">
-        <div class="card-head"><h3>Analisar os resultados</h3><span class="badge" data-badge hidden></span></div>
-        <p class="desc">Figuras (acurácia, confusão, ROC, sinal, features), validação cruzada e resumo, em <code>models/analise/</code>.</p>
-        <div class="botoes">
-          <button class="btn primary" data-iniciar>Analisar</button>
-          <button class="btn" data-figuras>Abrir as figuras</button>
-        </div>
-        <details class="opcoes"><summary>Opções</summary><div class="campos">
-          <label class="campo"><span>Gravação</span><select name="csv" data-lista="csvs"></select></label>
-          <label class="campo"><span>Feature</span><select name="feature"><option>mav</option><option>rms</option></select></label>
-          <label class="campo"><span>Divisão</span><select name="divisao"><option>temporal</option><option>legacy</option></select></label>
-          <label class="campo"><span>Semente</span><input type="number" name="semente" value="42" min="0" step="1"></label>
-          <label class="campo"><span>Partições (CV)</span><input type="number" name="particoes" value="5" min="2" max="20" step="1"></label>
-          <label class="campo"><span>Canais no gráfico</span><span class="par"><select name="canal_a"></select><select name="canal_b"></select></span></label>
-          <label class="campo"><span>Abrir as figuras de</span><select name="pasta" data-lista="analises"></select></label>
-        </div></details>
-        <div class="msg" data-msg></div>
-      </section>
-    </div>
-
-    <h2>Manutenção</h2>
-    <section class="card manut" data-card="manutencao">
-      <div class="linha"><span class="rot">Testes</span>
-        <button class="btn" data-acao="testes_rapido" title="compose, ruff e testes unitários">Rápido · ~30 s</button>
-        <button class="btn" data-acao="testes_completo" title="o mesmo que o CI do GitHub: imagem, testes e ponta a ponta">Completo · ~2 min</button>
+        <article class="sim" data-card="espelho">
+          <div class="sim-topo"><span class="glyph" aria-hidden="true"><svg width="22" height="22"><use href="#i-espelho"/></svg></span><span class="estado" data-badge><span class="lamp"></span><span data-txt>parado</span></span></div>
+          <h3>Modo espelho</h3>
+          <p class="desc">O braço copia o cotovelo visto num vídeo, por visão computacional. Não usa sEMG.</p>
+          <p class="spec">ângulo da câmera → cotovelo (180° − ângulo)</p>
+          <div class="acoes">
+            <button class="btn primary" data-iniciar><svg width="14" height="14"><use href="#i-play"/></svg>Iniciar</button>
+            <a class="btn primary" data-abrir href="http://localhost:8080" target="_blank" rel="noopener" hidden><span data-rotulo>Ver na página</span><svg width="15" height="15"><use href="#i-fora"/></svg></a>
+            <button class="btn quiet" data-ver hidden>Ver a saída</button>
+            <button class="btn stop" data-parar hidden><svg width="13" height="13"><use href="#i-stop"/></svg>Parar</button>
+          </div>
+          <p class="dica" data-dica></p>
+          <details class="opcoes"><summary>Opções</summary><div class="campos">
+            <label class="campo"><span>Vídeo</span><select name="video" id="espelho-video" data-lista="videos"></select></label>
+            <label class="check"><input type="checkbox" name="espelhar" id="espelho-espelhar"> Espelhar a imagem (o vídeo do mestrado já está espelhado)</label>
+            <label class="campo"><span>Braço</span><select name="lado" id="espelho-lado"><option value="right">direito</option><option value="left">esquerdo</option></select></label>
+            <label class="check" data-precisa-janela><input type="checkbox" name="janela" id="espelho-janela" checked> Janelas da câmera e do Gazebo</label>
+            <label class="check"><input type="checkbox" name="pagina" id="espelho-pagina"> Ver também na página do braço</label>
+          </div></details>
+          <p class="msg" data-msg></p>
+        </article>
       </div>
-      <div class="linha"><span class="rot">Docker</span>
-        <button class="btn" data-acao="verificar">Verificar o Docker</button>
-        <button class="btn" data-acao="imagem" title="depois de mudar o código">Construir a imagem</button>
+    </section>
+
+    <section class="secao">
+      <div class="secao-titulo"><h2>Dados e resultados</h2><p>gravar, treinar, conferir</p></div>
+      <div class="lista">
+        <div class="linha" data-card="captura">
+          <span class="glyph" aria-hidden="true"><svg width="22" height="22"><use href="#i-captura"/></svg></span>
+          <div class="corpo">
+            <div class="cabeca"><h3>Captura de dados</h3><span class="estado" data-badge hidden><span class="lamp"></span><span data-txt></span></span></div>
+            <p class="desc">Grava sEMG rotulado pelo ângulo do cotovelo medido pela câmera. Termina sozinha quando as categorias enchem.</p>
+            <p class="spec">categorias de 170°, 90°, 60° e 45° · CSV em data/</p>
+            <p class="dica" data-dica></p>
+            <details class="opcoes"><summary>Opções</summary><div class="campos">
+              <label class="campo"><span>Fonte do sEMG</span><select name="fonte" id="captura-fonte">
+                <option value="gravacao">Gravação do mestrado (demonstração)</option>
+                <option value="myo">Faixa Myo (precisa do dongle)</option></select></label>
+              <label class="campo" data-so-gravacao><span>Gravação</span><select name="csv" id="captura-csv" data-lista="csvs"></select></label>
+              <label class="campo"><span>Vídeo</span><select name="video" id="captura-video" data-lista="videos"></select></label>
+              <label class="campo"><span>Braço</span><select name="lado" id="captura-lado"><option value="right">direito</option><option value="left">esquerdo</option></select></label>
+              <label class="campo"><span>Categorias</span><select name="categorias" id="captura-categorias">
+                <option value="2">2 · 170° e 90°</option><option value="3">3 · + 60°</option><option value="4">4 · + 45°</option></select></label>
+              <label class="campo"><span>Tolerância (°)</span><input type="number" name="tolerancia" id="captura-tolerancia" value="10" min="1" max="45" step="1"></label>
+              <label class="campo"><span>Amostras por categoria</span><input type="number" name="amostras" id="captura-amostras" value="1000" min="10" max="100000" step="10"></label>
+              <label class="check"><input type="checkbox" name="espelhar" id="captura-espelhar"> Espelhar a imagem</label>
+              <label class="check"><input type="checkbox" name="continuo" id="captura-continuo"> Gravar também fora das categorias (para regressão contínua)</label>
+              <label class="check" data-precisa-janela><input type="checkbox" name="janela" id="captura-janela" checked> Janela da câmera</label>
+            </div></details>
+            <p class="msg" data-msg></p>
+          </div>
+          <div class="acoes">
+            <button class="btn primary" data-iniciar><svg width="14" height="14"><use href="#i-play"/></svg>Gravar</button>
+            <button class="btn stop" data-parar hidden><svg width="13" height="13"><use href="#i-stop"/></svg>Parar e salvar</button>
+          </div>
+        </div>
+
+        <div class="linha" data-card="treino">
+          <span class="glyph" aria-hidden="true"><svg width="22" height="22"><use href="#i-treino"/></svg></span>
+          <div class="corpo">
+            <div class="cabeca"><h3>Treinar os classificadores</h3><span class="estado" data-badge hidden><span class="lamp"></span><span data-txt></span></span></div>
+            <p class="desc">Os cinco classificadores do mestrado a partir de uma gravação.</p>
+            <p class="spec">k-NN · LDA · Gauss NB · SVM linear · árvore → models/</p>
+            <details class="opcoes"><summary>Opções</summary><div class="campos">
+              <label class="campo"><span>Gravação</span><select name="csv" id="treino-csv" data-lista="csvs"></select></label>
+              <label class="campo"><span>Feature</span><select name="feature" id="treino-feature"><option>mav</option><option>rms</option></select></label>
+              <label class="campo"><span>Divisão treino/teste</span><select name="divisao" id="treino-divisao"><option>temporal</option><option>legacy</option></select></label>
+              <label class="campo"><span>Semente</span><input type="number" name="semente" id="treino-semente" value="42" min="0" step="1"></label>
+            </div></details>
+            <p class="msg" data-msg></p>
+          </div>
+          <div class="acoes"><button class="btn primary" data-iniciar><svg width="14" height="14"><use href="#i-play"/></svg>Treinar</button></div>
+        </div>
+
+        <div class="linha" data-card="analise">
+          <span class="glyph" aria-hidden="true"><svg width="22" height="22"><use href="#i-analise"/></svg></span>
+          <div class="corpo">
+            <div class="cabeca"><h3>Analisar os resultados</h3><span class="estado" data-badge hidden><span class="lamp"></span><span data-txt></span></span></div>
+            <p class="desc">Acurácia, matrizes de confusão, ROC, sinal bruto e validação cruzada, com um resumo.</p>
+            <p class="spec">figuras PNG + resumo.md → models/analise/</p>
+            <details class="opcoes"><summary>Opções</summary><div class="campos">
+              <label class="campo"><span>Gravação</span><select name="csv" id="analise-csv" data-lista="csvs"></select></label>
+              <label class="campo"><span>Feature</span><select name="feature" id="analise-feature"><option>mav</option><option>rms</option></select></label>
+              <label class="campo"><span>Divisão treino/teste</span><select name="divisao" id="analise-divisao"><option>temporal</option><option>legacy</option></select></label>
+              <label class="campo"><span>Semente</span><input type="number" name="semente" id="analise-semente" value="42" min="0" step="1"></label>
+              <label class="campo"><span>Partições da validação</span><input type="number" name="particoes" id="analise-particoes" value="5" min="2" max="20" step="1"></label>
+              <label class="campo"><span>Canais no gráfico</span><span class="par"><select name="canal_a" id="analise-canal-a" aria-label="Primeiro canal"></select><select name="canal_b" id="analise-canal-b" aria-label="Segundo canal"></select></span></label>
+              <label class="campo"><span>Abrir as figuras de</span><select name="pasta" id="analise-pasta" data-lista="analises"></select></label>
+            </div></details>
+            <p class="msg" data-msg></p>
+          </div>
+          <div class="acoes">
+            <button class="btn primary" data-iniciar><svg width="14" height="14"><use href="#i-play"/></svg>Analisar</button>
+            <button class="btn" data-figuras><svg width="15" height="15"><use href="#i-pasta"/></svg>Figuras</button>
+          </div>
+        </div>
       </div>
-      <div class="linha"><span class="rot">Dados</span>
-        <button class="btn" data-acao="dados">Baixar os dados do mestrado</button>
+    </section>
+
+    <section class="secao">
+      <div class="secao-titulo"><h2>Manutenção</h2></div>
+      <div class="ferramentas" data-card="manutencao">
+        <div class="grupo"><span>Testes</span>
+          <button class="btn small" data-acao="testes_rapido" title="compose, ruff e testes unitários">Rápido · 30 s</button>
+          <button class="btn small" data-acao="testes_completo" title="o mesmo que o CI do GitHub: imagem, testes e ponta a ponta">Completo · 2 min</button>
+        </div>
+        <div class="grupo"><span>Docker</span>
+          <button class="btn small" data-acao="verificar">Verificar</button>
+          <button class="btn small" data-acao="imagem" title="depois de mudar o código">Construir a imagem</button>
+        </div>
+        <div class="grupo"><span>Dados</span>
+          <button class="btn small" data-acao="dados">Baixar os dados do mestrado</button>
+        </div>
+        <p class="msg" data-msg></p>
       </div>
-      <div class="msg" data-msg></div>
     </section>
   </div>
 
-  <aside class="card saida" aria-label="Saída">
-    <div class="saida-head"><h2>Saída</h2><select id="tarefaSel" aria-label="Tarefa"><option value="">nada executado ainda</option></select></div>
+  <aside class="saida" aria-label="Saída">
+    <div class="saida-barra"><h2>Saída</h2><select id="tarefaSel" aria-label="Tarefa"><option value="">nada executado ainda</option></select></div>
     <div class="saida-status" id="saidaStatus">Cada botão mostra aqui o comando que roda e o que ele imprime.</div>
-    <pre id="log"></pre>
-    <div class="saida-foot">
+    <pre id="log"><span class="vazio"># Clique em Iniciar num cartão.
+# O comando aparece aqui em azul, seguido da saída dele, ao vivo.
+# É o mesmo comando que você digitaria no terminal do Ubuntu.</span></pre>
+    <div class="saida-pe">
       <button class="btn small stop" id="pararTarefa" hidden>Parar esta tarefa</button>
       <label class="check"><input type="checkbox" id="rolar" checked> acompanhar o fim</label>
     </div>
@@ -302,18 +540,27 @@ pre#log .cmd { color: var(--accent); }
 <script>
 "use strict";
 
-const SERVICOS = {  // service cards: the container they start, and their stop/view actions
-  braco: { servico: "braco", parar: "parar_braco", ver: "ver_braco", pagina: () => true },
-  sistema: { servico: "sim", parar: "parar_sistema", ver: "ver_sistema", pagina: (p) => p.pagina },
-  espelho: { servico: "espelho", parar: "parar_espelho", ver: "ver_espelho", pagina: (p) => p.pagina },
+const SERVICOS = {  // simulation cards: the container they start, and their stop/view actions
+  braco: { servico: "braco", parar: "parar_braco", ver: "ver_braco" },
+  sistema: { servico: "sim", parar: "parar_sistema", ver: "ver_sistema" },
+  espelho: { servico: "espelho", parar: "parar_espelho", ver: "ver_espelho" },
 };
 const PRINCIPAIS = ["braco", "sim", "espelho", "captura", "shell"];
 const NOME_SERVICO = { braco: "o braço", sim: "o sistema completo", espelho: "o modo espelho", captura: "a captura", shell: "um terminal do projeto" };
+const ESTACOES = {  // which part of the chain each running service lights up
+  camera: (s) => s.has("espelho") || s.has("captura"),
+  semg: (s) => s.has("sim") || s.has("captura"),
+  classificador: (s) => s.has("sim"),
+  braco: (s) => s.has("braco") || s.has("sim") || s.has("espelho"),
+  pagina: (s) => s.has("web"),
+};
+const NOME_CURTO = { braco: "braço", sim: "sistema completo", espelho: "modo espelho", captura: "captura", shell: "terminal", web: "página do braço", "web-portas": null, train: "treino/análise" };
 const CLASSIFICADOR = { knn: "k-NN", lda: "LDA", gnb: "Gauss Naive Bayes", lin_svm: "SVM linear", tree: "Árvore de decisão" };
 const VIDEO_ESPELHADO = "test_2_05.avi";
+const SEGUE_LOGS = ["braco", "sistema", "espelho", "ver_braco", "ver_sistema", "ver_espelho"];
 
 let estado = null;
-let selecionada = null;   // task id shown in the output panel
+let selecionada = null;   // task shown in the output panel
 let desde = 0;
 let lendo = false;
 
@@ -350,14 +597,14 @@ async function executar(acao, p, card) {
     selecionar(tarefa);
     atualizar();
   } catch (e) {
-    if (card) mensagem(card, e.message); else mostrarErro(e.message);
+    if (card) mensagem(card, e.message);
+    else $("#resumo").textContent = e.message;
   }
 }
 
-function mostrarErro(t) {
-  $("#erroTxt").textContent = t;
-  $("#faixaErro").hidden = !t;
-  if (t) setTimeout(() => { if ($("#erroTxt").textContent === t) mostrarErro(""); }, 8000);
+function marcar(el, s, texto) {  // status pill: lamp + text
+  el.dataset.s = s;
+  $("[data-txt]", el).textContent = texto;
 }
 
 // ------------------------------------------------------------ options (lists from the server, remembered choices)
@@ -425,26 +672,38 @@ function render() {
   const d = $("#docker");
   d.dataset.s = dockerOk ? "ok" : "off";
   $("#dockerTxt").textContent = dockerOk
-    ? `Docker pronto (${e.docker.desktop ? "Docker Desktop " : ""}${e.docker.versao})`
-    : "Docker fechado ou sem resposta";
+    ? `Docker pronto · ${e.docker.desktop ? "Desktop " : ""}${e.docker.versao}`
+    : "Docker fechado";
   $("#abrirDocker").hidden = dockerOk || !e.ambiente.wsl;
-  $("#pararTudo").disabled = !rodando.length;
 
-  $("#faixaRodando").hidden = !rodando.length;
-  $("#rodandoTxt").textContent = rodando.length ? "Rodando agora: " + rodando.map((c) => c.servico + (c.servico === "web" ? " (página do braço)" : "")).join(", ") : "";
+  // the chain strip: summary before detail
+  for (const el of $$("[data-estacao]")) {
+    const on = ESTACOES[el.dataset.estacao](servicos);
+    el.classList.toggle("on", on);
+    $(".lamp", el).classList.toggle("on", on);
+  }
+  // web-portas is plumbing (null): left out of the summary
+  const nomes = rodando.map((c) => (c.servico in NOME_CURTO ? NOME_CURTO[c.servico] : c.servico)).filter(Boolean);
+  $("#resumo").innerHTML = "";
+  $("#resumo").append(
+    !dockerOk ? "Abra o Docker Desktop para começar."
+      : nomes.length ? Object.assign(document.createElement("span"), { innerHTML: "Rodando: <strong></strong>" })
+      : "Nada rodando. Escolha uma simulação abaixo.",
+  );
+  if (nomes.length) $("#resumo strong").textContent = [...new Set(nomes)].join(" + ");
 
   for (const el of $$("[data-precisa-janela]")) el.hidden = !e.ambiente.janela;
 
-  // service cards
+  // simulation cards
   for (const [card, s] of Object.entries(SERVICOS)) {
     const el = $(`[data-card="${card}"]`);
     const ativo = servicos.has(s.servico);
     const t = tarefaDe([card]);
     const iniciando = !ativo && t && t.rodando;
     const outro = principais.find((x) => x !== s.servico);
-    const badge = $("[data-badge]", el);
-    badge.dataset.s = ativo ? "rodando" : iniciando ? "iniciando" : t && t.codigo ? "falhou" : "";
-    badge.textContent = ativo ? "rodando" : iniciando ? "iniciando…" : t && t.codigo ? "falhou" : "parado";
+    el.classList.toggle("ativo", ativo);
+    const falhou = !ativo && !iniciando && t && t.codigo;
+    marcar($("[data-badge]", el), ativo ? "rodando" : iniciando ? "iniciando" : falhou ? "falhou" : "", ativo ? "rodando" : iniciando ? "iniciando…" : falhou ? "falhou" : "parado");
     const ini = $("[data-iniciar]", el);
     ini.hidden = ativo;
     ini.disabled = !dockerOk || iniciando || Boolean(outro);
@@ -454,10 +713,9 @@ function render() {
     const abrir = $("[data-abrir]", el);
     abrir.hidden = !(ativo && servicos.has("web"));
     abrir.setAttribute("aria-disabled", String(!e.pagina_braco));
-    abrir.textContent = e.pagina_braco ? abrir.dataset.rotulo : "Preparando a página…";
-    const dica = $("[data-dica]", el);
-    dica.textContent = !ativo && outro ? `Pare ${NOME_SERVICO[outro]} antes: só um de cada vez.`
-      : iniciando ? "Subindo os containers (alguns segundos)…" : "";
+    $("[data-rotulo]", abrir).textContent = e.pagina_braco ? abrir.dataset.rotulo : "Preparando a página…";
+    $("[data-dica]", el).textContent = !ativo && outro ? `Pare ${NOME_SERVICO[outro]} antes: só uma simulação de cada vez.`
+      : iniciando ? "Subindo os containers, alguns segundos…" : "";
   }
 
   // one-off tasks
@@ -466,9 +724,8 @@ function render() {
     const t = tarefaDe([card]);
     const ocupado = t && t.rodando;
     const badge = $("[data-badge]", el);
-    badge.dataset.s = ocupado ? "rodando" : !t ? "" : t.codigo === 0 ? "ok" : "falhou";
     badge.hidden = !t;
-    badge.textContent = !t ? "" : ocupado ? "rodando" : t.codigo === 0 ? `concluído ${hora(t.fim)}` : `falhou (código ${t.codigo})`;
+    if (t) marcar(badge, ocupado ? "rodando" : t.codigo === 0 ? "ok" : "falhou", ocupado ? (card === "captura" ? "gravando" : "rodando") : t.codigo === 0 ? `concluído às ${hora(t.fim)}` : `falhou · código ${t.codigo}`);
     const ini = $("[data-iniciar]", el);
     ini.hidden = card === "captura" && ocupado;
     const outro = card === "captura" && principais.find((x) => x !== "captura");
@@ -485,6 +742,7 @@ function render() {
     const precisa = !["verificar", "dados", "abrir_docker"].includes(b.dataset.acao);
     b.disabled = (t && t.rodando) || (precisa && !dockerOk) || (b.id === "pararTudo" && !rodando.length);
   }
+  if (!rodando.length) desarmar();
 
   renderTarefas();
 }
@@ -500,21 +758,25 @@ function renderTarefas() {
       const o = document.createElement("option");
       o.value = t.id;
       const icone = t.rodando ? "●" : t.codigo === 0 ? "✓" : "✗";
-      o.textContent = `${icone} ${t.titulo} · ${hora(t.inicio)}`;
+      o.textContent = `${icone}  ${t.titulo} · ${hora(t.inicio)}`;
       return o;
     }));
     if (selecionada == null) selecionar(tarefas[0].id);
     sel.value = selecionada;
   }
   const t = tarefas.find((x) => x.id === selecionada);
-  if (t) {
-    const segue = ["braco", "sistema", "espelho", "ver_braco", "ver_sistema", "ver_espelho"].includes(t.acao);
-    $("#pararTarefa").hidden = !t.rodando || segue;
-    $("#saidaStatus").textContent = t.rodando
-      ? (segue ? "Acompanhando os registros. Para parar a simulação, use o botão Parar do cartão." : "Rodando…")
-      : t.codigo === 0 ? `Terminou bem às ${hora(t.fim)}.` : `Terminou com código ${t.codigo} às ${hora(t.fim)}: o motivo costuma estar nas últimas linhas.`;
-    if (t.rodando && !lendo) lerSaida();
+  if (!t) return;
+  const segue = SEGUE_LOGS.includes(t.acao);
+  $("#pararTarefa").hidden = !t.rodando || segue;
+  const st = $("#saidaStatus");
+  st.replaceChildren();
+  if (t.rodando) {
+    st.append(segue ? "Acompanhando os registros. Para parar a simulação, use Parar no cartão." : "Rodando…");
+  } else {
+    const chip = Object.assign(document.createElement("span"), { className: "codigo " + (t.codigo === 0 ? "ok" : "erro"), textContent: `código ${t.codigo}` });
+    st.append(chip, t.codigo === 0 ? ` terminou bem às ${hora(t.fim)}` : ` terminou às ${hora(t.fim)}; o motivo costuma estar nas últimas linhas`);
   }
+  if (t.rodando && !lendo) lerSaida();
 }
 
 // ------------------------------------------------------------ output panel
@@ -560,6 +822,27 @@ async function lerSaida() {
   }
 }
 
+// ------------------------------------------------------------ "Parar tudo" asks once, in place
+let armado = null;
+function desarmar() {
+  const b = $("#pararTudo");
+  clearTimeout(armado);
+  armado = null;
+  b.classList.remove("confirmar");
+  $("span", b).textContent = "Parar tudo";
+}
+$("#pararTudo").addEventListener("click", () => {
+  const b = $("#pararTudo");
+  if (!armado) {
+    b.classList.add("confirmar");
+    $("span", b).textContent = "Confirmar: parar tudo";
+    armado = setTimeout(desarmar, 4000);
+    return;
+  }
+  desarmar();
+  executar("parar_tudo", {}, null);
+});
+
 // ------------------------------------------------------------ wiring
 async function atualizar() {
   try {
@@ -567,9 +850,10 @@ async function atualizar() {
     estado = await r.json();
     preencherListas();
     render();
-    if (!$("#faixaErro").hidden && $("#erroTxt").textContent.startsWith("O painel")) mostrarErro("");
   } catch {
-    mostrarErro("O painel não responde. A janela do painel foi fechada? Abra de novo o Painel do projeto.");
+    $("#docker").dataset.s = "off";
+    $("#dockerTxt").textContent = "painel sem resposta";
+    $("#resumo").textContent = "O painel não responde. A janela do painel foi fechada? Abra de novo o Painel do projeto.";
   }
 }
 
@@ -577,7 +861,7 @@ prepararCampos();
 for (const [card, s] of Object.entries(SERVICOS)) {
   const el = $(`[data-card="${card}"]`);
   const abrir = $("[data-abrir]", el);
-  abrir.dataset.rotulo = abrir.textContent;
+  abrir.dataset.rotulo = $("[data-rotulo]", abrir).textContent;
   $("[data-iniciar]", el).addEventListener("click", () => executar(card, params(el), el));
   $("[data-parar]", el).addEventListener("click", () => executar(s.parar, {}, el));
   $("[data-ver]", el).addEventListener("click", () => executar(s.ver, {}, el));
@@ -593,10 +877,8 @@ $("[data-figuras]").addEventListener("click", (ev) => {
   executar("abrir_figuras", { pasta: $('[name="pasta"]', el).value }, el);
 });
 for (const b of $$("[data-acao]")) {
-  b.addEventListener("click", () => {
-    if (b.dataset.acao === "parar_tudo" && !confirm("Parar todos os containers do projeto?")) return;
-    executar(b.dataset.acao, {}, b.closest("[data-card]"));
-  });
+  if (b.id === "pararTudo") continue;  // it confirms first, above
+  b.addEventListener("click", () => executar(b.dataset.acao, {}, b.closest("[data-card]")));
 }
 $("#tarefaSel").addEventListener("change", (ev) => ev.target.value && selecionar(ev.target.value));
 $("#pararTarefa").addEventListener("click", () => post("/api/parar_tarefa", { tarefa: selecionada }).then(atualizar));
