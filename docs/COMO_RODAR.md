@@ -13,10 +13,11 @@ roda dentro do Docker: você não instala ROS nem Gazebo no seu sistema.
 > - o [passo 5](#5-pilotar-o-braço-pelo-navegador): a interface web, no
 >   navegador do Windows;
 > - os passos 6, 7 e 9, pelo menu, com o vídeo do mestrado e sEMG reproduzido.
->   No modo espelho, as janelas da câmera e do Gazebo abrem juntas.
->
-> O [passo 8](#8-movimento-real-o-braço-repete-um-cotovelo-humano) (movimento
-> real) foi testado **só no Linux sem monitor e no CI**; falta vê-lo no Windows.
+>   No modo espelho, as janelas da câmera e do Gazebo abrem juntas;
+> - o [passo 8](#8-movimento-real-o-braço-repete-um-cotovelo-humano) (movimento
+>   real), pelo painel, com a janela do Gazebo e a página do braço: em
+>   `EatFruit`, o braço estica ao alcançar e dobra ao levar à boca (conferido
+>   em 2026-09-27).
 >
 > **Ainda não** foram testados o Linux com monitor de verdade, a interface web
 > no Linux e no celular, a webcam e a faixa Myo. Se algo falhar, a seção
@@ -476,10 +477,15 @@ As outras 10 tarefas são de mão e punho: o cotovelo quase não se mexe. As
 excursões são as medidas no contrato de dados do `semg-digital-twins`
 (`docs/DATA_CONTRACT_REACH_GRASP.md`).
 
-**O que observar:** ao alcançar, o braço do Gazebo deve **esticar** (o ângulo
-cai); ao levar a mão à boca, **dobrar**. Se acontecer o contrário, a convenção
-angular assumida (0° = estendido, a mesma do simulador) está errada: anote e
-avise, porque o contrato de dados ainda a marca como não confirmada.
+**O que observar:** ao alcançar, o braço do Gazebo **estica** (o ângulo
+cai); ao levar a mão à boca, **dobra**. Foi o que se viu no Windows, na janela
+do Gazebo e na página do braço, e confirma a convenção 0° = estendido, a mesma
+do simulador (D27).
+
+**Se a janela do Gazebo aparecer na barra de tarefas mas não na tela** (o
+título traz `[WARN:COPY MODE]`), é a exibição do WSLg que travou. `wsl
+--shutdown` no PowerShell resolve; depois abra o Docker Desktop e o painel de
+novo. Isso encerra tudo o que roda no WSL.
 
 **O braço fica atrás da pessoa.** O controlador é o do mestrado (P, kp = 1 no
 cotovelo), com cerca de 1 s de constante de tempo. Medido no sujeito 1: o

@@ -360,10 +360,14 @@ descrito no contrato de dados de lá (`docs/DATA_CONTRACT_REACH_GRASP.md`).
 - **Alvo:** `RElbow_X`, em graus, convertido direto para radianos, porque o
   cotovelo do simulador também é 0 quando estendido. Não há a inversão de
   180° − ângulo usada para a câmera.
-- **Convenção não confirmada:** o contrato de dados mede que alcançar diminui
-  o ângulo e levar à boca o aumenta, compatível com 0° = estendido, mas não
-  achou a confirmação na documentação do Plug-in-Gait. Ver o braço esticar ao
-  alcançar é a conferência visual.
+- **Convenção confirmada (2026-09-27):** o contrato de dados mede que
+  alcançar diminui o ângulo e levar à boca o aumenta, compatível com
+  0° = estendido, mas não achou a confirmação na documentação do Plug-in-Gait.
+  A conferência visual foi feita no Windows, com `EatFruit` do sujeito 1, na
+  janela do Gazebo e na página do braço: o braço estica ao alcançar e dobra ao
+  levar à boca. Os números concordam: na boca o ângulo chega a ~130°, e levar
+  a mão à boca pede mais de ~120° de flexão; com a convenção oposta seriam
+  ~50°.
 - **Lacunas:** nas amostras em que o Vicon perdeu o cotovelo (9 dos 160
   ensaios, até 3,5 % delas), o alvo anterior é mantido. Nada é interpolado, e
   o log diz quantas foram.
