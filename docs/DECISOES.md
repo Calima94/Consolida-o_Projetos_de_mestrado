@@ -409,6 +409,41 @@ foi feito quase todo com IA, então segue a mesma regra.
 *Rever se* a portaria mudar, a UFABC publicar norma própria, ou a ADR-003 do
 `semg-digital-twins` for alterada.
 
+**D29. A trilha de sessão dos commits locais que saíram sem ela.** A D28 e o
+[`CLAUDE.md`](../CLAUDE.md) exigem que todo commit de sessão local leve
+`Claude-Session: <uuid> (Claude Code desktop, local)`. Dezenove commits sem
+merge, todos de 26 e 27/09/2026, entraram sem essa linha — inclusive o
+`a39a2b8`, que é o commit que introduziu a própria regra. Sem a linha, a
+conversa que produziu cada mudança não é recuperável, que é justamente o que a
+Portaria exige guardar.
+
+- **Decisão: não reescrever o histórico.** Colocar a linha nos commits antigos
+  exigiria force-push na `main`, que depende dos dois jobs do CI, e o ganho
+  seria cosmético — a trilha se recupera igual por declaração. **Esta decisão
+  passa a ser a trilha.**
+- **Mapa de commit para sessão:**
+
+  | Commits | Sessão local | Base da atribuição |
+  |---|---|---|
+  | `8495445` | `c1f1b4ca-c5e6-4e12-8cf0-7ddaad9ab8a1` | a própria sessão que fez o commit registrou isto aqui |
+  | `f78edfa`, `f210778`, `e1f13a2`, `7c38066`, `80c551f`, `1b9c319`, `3f08d8b`, `904ff88`, `dbe375e`, `c17f740`, `63bbd5b`, `1429828`, `3218a5c`, `00ba5bd`, `e3a07ce`, `38ce2d8`, `55b0ab9`, `a39a2b8` | `822a29d4-7418-4f6f-bb23-1fc684387e9d` | PRs #6, #7, #9, #10 e #11, conforme o `LEIA-ME.txt` do backup daquela sessão — **a confirmar pelo Caio** |
+
+- **As transcrições estão em backup**, como a D28 exige, em
+  `OneDrive\Caio\UFABC\Backups de IA\`, nas pastas `2026-09-27_822a29d4\` e
+  `2026-09-27_c1f1b4ca\`. São elas que recuperam a conversa por trás de cada
+  commit da tabela.
+- **Também fora da regra:** o `8495445` foi commitado direto na `main` e sem PR,
+  portanto sem o label `agent:claude-code` nem a linha
+  `Ferramenta: Claude Code (Desktop local)`. Ele é de 26/09 20:51 e o
+  `CLAUDE.md` entrou em 27/09 22:03, mas o artefato está na `main` e hoje é
+  governado pela regra.
+- **Daqui para frente** a regra vale sem exceção. Se ainda assim um commit sair
+  sem a linha, registrar aqui em vez de reescrever o histórico.
+
+*Rever se* o histórico precisar mesmo ser reescrito por exigência externa, se a
+atribuição de algum commit acima for corrigida, ou se o repositório passar a
+verificar o trailer automaticamente no CI.
+
 ---
 
 *Redigido predominantemente por Claude (Anthropic), via Claude Code, a pedido do Caio Lima (declaração de uso de IA: Portaria CNPq nº 2.664/2026, D28). Aprovação: Caio Lima, pelo merge dos PRs.*
