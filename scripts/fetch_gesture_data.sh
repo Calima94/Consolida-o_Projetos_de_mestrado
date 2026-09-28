@@ -5,8 +5,10 @@
 #
 # The data is the set of Toro-Ossaba et al., "LSTM Recurrent Neural Network
 # for Hand Gesture Recognition Using EMG Signals", Applied Sciences 12(19),
-# 9700, 2022: 8 participants x 5 gestures, 4-channel armband at 1 kHz, each
-# gesture held for ~20 s. It comes from the course's Google Drive folder
+# 9700, 2022, https://doi.org/10.3390/app12199700 (as the course report says;
+# not compared with a copy from the authors): 8 participants x 5 gestures,
+# 4-channel armband at 1 kHz, each gesture held for ~20 s. It comes from the
+# course's Google Drive folder
 # ("EMG hand gestures dataset", one folder per subject with 0.txt..4.txt,
 # tab-separated, no header), pinned by file id and SHA-256.
 #

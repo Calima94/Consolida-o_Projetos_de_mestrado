@@ -18,9 +18,11 @@ canais do Myo o problema não ocorre.
 ## Os dados
 
 São os de Toro-Ossaba et al., *LSTM Recurrent Neural Network for Hand Gesture
-Recognition Using EMG Signals*, Applied Sciences 12(19), 9700, 2022:
+Recognition Using EMG Signals*, Applied Sciences 12(19), 9700, 2022
+([doi:10.3390/app12199700](https://doi.org/10.3390/app12199700)):
 8 participantes × 5 gestos, bracelete de 4 canais a 1000 Hz, cerca de 20 s por
-gesto. `scripts/fetch_gesture_data.sh` baixa os 40 arquivos da pasta da
+gesto. Que a pasta da disciplina é esse conjunto é o que diz o relatório da
+disciplina; os arquivos não foram comparados com uma cópia obtida dos autores. `scripts/fetch_gesture_data.sh` baixa os 40 arquivos da pasta da
 disciplina no Drive e confere o SHA-256 de cada um. Depois grava
 `data/gestos_1khz.csv`: 822 691 amostras, com as colunas `time`, `channel1..4`,
 `participante` e `position`.
@@ -217,3 +219,7 @@ sobreposição) e uma LSTM que percorra o tempo dentro da janela.
   83 %.
 - Em aberto: o nome de cada gesto; a LSTM com hiperparâmetros escolhidos sem
   olhar o teste e percorrendo o tempo dentro da janela.
+
+---
+
+*Redigido predominantemente por Claude (Anthropic), via Claude Code, a pedido do Caio Lima (declaração de uso de IA: Portaria CNPq nº 2.664/2026, D28). Aprovação: Caio Lima, pelo merge dos PRs.*

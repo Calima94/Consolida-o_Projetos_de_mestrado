@@ -296,7 +296,8 @@ canais vem do cabeçalho do CSV.
 
 **D25. Os dados de gestos da disciplina entram no projeto, com validação por
 participante.** A disciplina de Deep Learning (PPGINF) usou o app do mestrado
-nos dados de Toro-Ossaba et al. (2022): 8 participantes, 5 gestos, 4 canais a
+nos dados de Toro-Ossaba et al. (2022,
+[doi:10.3390/app12199700](https://doi.org/10.3390/app12199700)): 8 participantes, 5 gestos, 4 canais a
 1000 Hz. `scripts/fetch_gesture_data.sh` os baixa com SHA-256 conferido e
 grava um CSV só, com a coluna `participante`. No painel, "Como na disciplina"
 preenche os parâmetros usados lá, e "Parte de teste (%)" dá o `--test-size`.
@@ -380,3 +381,34 @@ descrito no contrato de dados de lá (`docs/DATA_CONTRACT_REACH_GRASP.md`).
 *Rever se* a convenção angular for desmentida, ou se o gêmeo digital precisar
 seguir o braço em tempo real (aí o controle muda, em decisão própria).
 
+**D28. As regras do CNPq sobre IA valem aqui também.** O `semg-digital-twins`
+adota, na sua ADR-003, a **Portaria CNPq nº 2.664/2026** (Política de
+Integridade na Atividade Científica, de 11/03/2026;
+[anúncio oficial](https://www.gov.br/cnpq/pt-br/assuntos/noticias/cnpq-em-acao/cnpq-publica-portaria-que-institui-politica-de-integridade-na-atividade-cientifica))
+como regra vinculante para qualquer material que vire publicação, submissão,
+relatório ou entrega. Este repositório é a base de simulação daquele projeto e
+foi feito quase todo com IA, então segue a mesma regra.
+
+- **Por quê:** a portaria não proíbe usar IA; proíbe **esconder** o uso. Exige
+  declarar a ferramenta, a fase e a finalidade, e põe no autor a
+  responsabilidade por tudo, inclusive erros da ferramenta. As sanções vão de
+  advertência a revogação de fomento e devolução de recursos.
+- **O que muda na prática:** o [`CLAUDE.md`](../CLAUDE.md) passa a trazer as
+  regras para toda sessão de IA neste repositório. PRs levam o label
+  `agent:claude-code`, aplicado também aos PRs #1 a #9. A seção "Uso de IA" do
+  README declara ferramenta, fase e finalidade. A documentação escrita
+  predominantemente por IA leva rodapé. Toda referência tem link verificável:
+  a de Toro-Ossaba et al. (2022), citada sem DOI na D25, ganhou
+  [doi:10.3390/app12199700](https://doi.org/10.3390/app12199700), conferido no
+  Crossref.
+- **Vedado:** conteúdo de IA apresentado como de autoria humana, referência ou
+  dado inventado, parecer de revisor escrito por IA, entrega sem revisão do
+  Caio.
+- **Mudanças de regra** entram por PR que o Caio aprova e integra.
+
+*Rever se* a portaria mudar, a UFABC publicar norma própria, ou a ADR-003 do
+`semg-digital-twins` for alterada.
+
+---
+
+*Redigido predominantemente por Claude (Anthropic), via Claude Code, a pedido do Caio Lima (declaração de uso de IA: Portaria CNPq nº 2.664/2026, D28). Aprovação: Caio Lima, pelo merge dos PRs.*

@@ -104,3 +104,7 @@ A segunda linha **reproduz exatamente** o histórico (teste
 erro vale 6 pontos percentuais: essas acurácias servem para conferir que o
 porte funciona, **não como resultado científico**. Não há avaliação
 entre sujeitos possível com esses dados.
+
+---
+
+*Redigido predominantemente por Claude (Anthropic), via Claude Code, a pedido do Caio Lima (declaração de uso de IA: Portaria CNPq nº 2.664/2026, D28). Aprovação: Caio Lima, pelo merge dos PRs.*

@@ -279,9 +279,21 @@ data/, models/              fora do git (baixados / gerados)
 
 ## Uso de IA
 
-O porte, os testes e esta documentação foram feitos com o Claude (Anthropic),
-via Claude Code, a partir da leitura dos repositórios originais. A revisão e a
-responsabilidade pelo conteúdo são do autor.
+Declaração conforme a Portaria CNPq nº 2.664/2026 (decisão D28): ferramenta,
+fase e finalidade.
+
+| Ferramenta | Fase | Finalidade |
+|---|---|---|
+| Claude, da Anthropic, via Claude Code | Porte do código do mestrado | Ler os repositórios originais e reescrever captura, classificadores, controle e simulação para ROS 2 Lyrical + Gazebo Jetty |
+| Claude, da Anthropic, via Claude Code | Testes e verificação | Escrever os testes, os scripts de CI e de ponta a ponta, e rodar as medições relatadas nos documentos |
+| Claude, da Anthropic, via Claude Code | Análise de dados | Rodar e redigir as análises de [`ANALISE_RESULTADOS.md`](docs/ANALISE_RESULTADOS.md) e [`ANALISE_GESTOS.md`](docs/ANALISE_GESTOS.md), inclusive a reprodução da LSTM da disciplina |
+| Claude, da Anthropic, via Claude Code | Documentação | Redigir README, guias, decisões e inventário |
+
+Regra dos documentos: todo resultado experimental relatado vem de uma execução
+de código descrita junto dele (deste repositório ou, quando dito, do código
+original rodado sem alteração), com os dados e as sementes; nada é estimado
+pela ferramenta. A revisão e a responsabilidade pelo conteúdo são do autor,
+Caio Lima. Regras para sessões de IA neste repositório: [`CLAUDE.md`](CLAUDE.md).
 
 ## Licença
 
