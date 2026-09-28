@@ -31,8 +31,18 @@ impedimento em seleções do CNPq, revogação de fomento e devolução de recur
 - **Declarar todo uso de IA**: a ferramenta ("Claude, da Anthropic, via Claude
   Code"), a fase da pesquisa e a finalidade. A declaração do repositório fica
   na seção "Uso de IA" do README; mantenha-a em dia quando o uso mudar.
-- **Commits** com `Co-Authored-By` do Claude. **PRs** com o label
-  `agent:claude-code`.
+- **Commits** com `Co-Authored-By` do Claude e a linha `Claude-Session:` com o
+  ID da sessão (no app de desktop, o ID local: `Claude-Session: <uuid>
+  (Claude Code desktop, local)`). **PRs** com o label `agent:claude-code` e,
+  no corpo, a modalidade: `Ferramenta: Claude Code (Desktop local)` ou
+  `Ferramenta: Claude Code (Nuvem)`.
+- **Transcrições locais**: sem link público, a trilha de uma sessão local está
+  só no computador do Caio (`~/.claude/projects/<projeto>/<session-id>.jsonl`).
+  Material que vá para uma entrega formal leva junto, em backup, a transcrição
+  da sessão que o produziu (o `.jsonl` ou uma cópia feita com `/export`).
+  Sessões do terminal são apagadas depois de 30 dias por padrão; as do app de
+  desktop, não (ADR-003 do `semg-digital-twins`, revisão do Gemini de
+  2026-09-27).
 - **Documentação escrita predominantemente por IA** leva rodapé dizendo isso.
 - **Revisão humana**: nada deste repositório vira artigo, relatório,
   dissertação, pôster ou qualquer entrega formal sem o Caio ler e editar. A
